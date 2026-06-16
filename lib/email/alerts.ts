@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ✅ Added a fallback string so Vercel's build step doesn't crash!
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_build_key');
 
 export async function sendWeeklyReport(website: any, score: number, userEmail: string) {
   const scoreChange = score - (website.previous_score || 0);
