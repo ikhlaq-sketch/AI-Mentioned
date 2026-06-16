@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -21,7 +22,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const pdfBuffer = await generatePDFReport(website_id, date_from, date_to);
-    return new NextResponse(pdfBuffer, {
+    
+    // FIXED: Convert Node.js Buffer to a standard web Uint8Array to satisfy TypeScript
+    const responseBody = new Uint8Array(pdfBuffer);
+    
+    return new NextResponse(responseBody, {
+      status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="aimentioned-report-${website_id}.pdf"`,
