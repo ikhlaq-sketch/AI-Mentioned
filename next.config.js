@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['pdfkit'],
+  experimental: {
+    serverComponentsExternalPackages: ['pdfkit', '@sparticuz/chromium'],
+  },
 };
 
-module.exports = nextConfig;s
+module.exports = nextConfig;
