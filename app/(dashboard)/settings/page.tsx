@@ -35,10 +35,11 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
+  // Function for Paid Users (Opens Customer Portal)
   const handleManageSubscription = async () => {
     setPortalLoading(true);
     try {
-      const res = await fetch('/api/billing/portal', {
+      const res = await fetch('/api/billing/checkout/portal', { 
         method: 'POST',
       });
       const data = await res.json();
@@ -54,12 +55,41 @@ export default function SettingsPage() {
     }
   };
 
+  // Function for Free Users (Opens Payment Checkout)
+  const handleUpgrade = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch('/api/billing/checkout', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // ✅ FIX: Replaced '123456' with your actual Starter Variant ID
+        body: JSON.stringify({ variant_id: '1796870' }) 
+      });
+      const data = await res.json();
+      
+      if (data.url) {
+        // Redirects directly to the Lemon Squeezy hosted checkout page
+        window.location.href = data.url; 
+      } else {
+        alert(data.error || 'Could not initiate checkout.');
+      }
+    } catch (err) {
+      alert('Something went wrong.');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   if (!profile) return <LoadingSpinner />;
+
+  // Determine if the user is free or paid
+  const isFreePlan = !profile.plan || profile.plan.toLowerCase() === 'free';
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-white mb-6">Settings</h1>
       <div className="bg-[#1e293b] p-6 rounded-xl border border-[#334155] max-w-xl space-y-6">
+        
         {/* Profile Section */}
         <div>
           <h2 className="text-xl font-semibold text-white mb-4">Profile</h2>
@@ -85,7 +115,7 @@ export default function SettingsPage() {
             <button
               onClick={handleSaveProfile}
               disabled={saving}
-              className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+              className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2 text-white"
             >
               {saving && <LoadingSpinner size={14} />}
               Save
@@ -99,19 +129,32 @@ export default function SettingsPage() {
           <h2 className="text-xl font-semibold text-white mb-2">Billing</h2>
           <p className="text-[#94a3b8]">
             Plan:{' '}
-            <span className="text-indigo-400 capitalize">{profile.plan}</span>
+            <span className="text-indigo-400 capitalize">{profile.plan || 'free'}</span>
           </p>
           <p className="text-[#94a3b8]">
-            Queries: {profile.queries_used}/{profile.queries_limit}
+            Queries: {profile.queries_used || 0}/{profile.queries_limit || 100}
           </p>
-          <button
-            onClick={handleManageSubscription}
-            disabled={portalLoading}
-            className="mt-3 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2"
-          >
-            {portalLoading && <LoadingSpinner size={14} />}
-            Manage Subscription
-          </button>
+          
+          {/* Dynamically show the correct button based on their plan */}
+          {isFreePlan ? (
+            <button
+              onClick={handleUpgrade}
+              disabled={portalLoading}
+              className="mt-3 bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2 text-white transition-colors"
+            >
+              {portalLoading && <LoadingSpinner size={14} />}
+              Upgrade Plan
+            </button>
+          ) : (
+            <button
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="mt-3 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2 text-white transition-colors"
+            >
+              {portalLoading && <LoadingSpinner size={14} />}
+              Manage Subscription
+            </button>
+          )}
         </div>
       </div>
     </div>
