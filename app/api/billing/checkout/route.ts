@@ -8,8 +8,10 @@ export async function POST(req: NextRequest) {
   try {
     // Read token from Authorization header
     const authHeader = req.headers.get('authorization');
+    console.log("Auth header present:", !!authHeader);
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized - no token' }, { status: 401 });
     }
 
     const token = authHeader.split(' ')[1];
@@ -22,22 +24,26 @@ export async function POST(req: NextRequest) {
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    console.log("User auth success:", !!user, "Error:", authError?.message);
 
     if (authError || !user) {
-      console.error("Auth Error:", authError);
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized - invalid token' }, { status: 401 });
     }
 
     const { variant_id } = await req.json();
-    if (!variant_id) {
-      return NextResponse.json({ error: 'Missing variant_id' }, { status: 400 });
-    }
+    console.log("Variant ID:", variant_id);
 
     const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
     const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
 
+    console.log("Store ID exists:", !!storeId, "API Key exists:", !!apiKey);
+
     if (!storeId || !apiKey) {
-      throw new Error("Missing LEMON_SQUEEZY_STORE_ID or LEMON_SQUEEZY_API_KEY in .env");
+      console.error("Missing env vars - STORE_ID:", !!storeId, "API_KEY:", !!apiKey);
+      return NextResponse.json(
+        { error: 'Server configuration error - missing API keys' },
+        { status: 500 }
+      );
     }
 
     const response = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
@@ -53,23 +59,15 @@ export async function POST(req: NextRequest) {
           attributes: {
             checkout_data: {
               email: user.email,
-              custom: {
-                user_id: user.id,
-              },
+              custom: { user_id: user.id },
             },
           },
           relationships: {
             store: {
-              data: {
-                type: 'stores',
-                id: storeId.toString(),
-              },
+              data: { type: 'stores', id: storeId.toString() },
             },
             variant: {
-              data: {
-                type: 'variants',
-                id: variant_id.toString(),
-              },
+              data: { type: 'variants', id: variant_id.toString() },
             },
           },
         },
@@ -77,19 +75,19 @@ export async function POST(req: NextRequest) {
     });
 
     const json = await response.json();
+    console.log("Lemon Squeezy response status:", response.status);
 
     if (!response.ok || json.errors) {
-      console.log("Lemon Squeezy Error Response:", JSON.stringify(json, null, 2));
-      throw new Error(json.errors?.[0]?.detail || json.message || 'Invalid response from Lemon Squeezy');
-    }
-
-    if (!json.data || !json.data.attributes) {
-      throw new Error('Missing data attributes in Lemon Squeezy response');
+      console.error("Lemon Squeezy error:", JSON.stringify(json.errors));
+      return NextResponse.json(
+        { error: json.errors?.[0]?.detail || 'Lemon Squeezy API error' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ url: json.data.attributes.url });
   } catch (err: any) {
-    console.error('Checkout error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Fatal checkout error:", err.message, err.stack);
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
   }
 }
