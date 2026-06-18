@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabase();
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    // Read token from Authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    // Verify token and get user
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
     if (authError || !user) {
       console.error("Auth Error:", authError);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -34,7 +47,6 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/vnd.api+json',
         Accept: 'application/vnd.api+json',
       },
-      // ✅ FIX: Restructured the body to match Lemon Squeezy's strict JSON:API format
       body: JSON.stringify({
         data: {
           type: 'checkouts',
