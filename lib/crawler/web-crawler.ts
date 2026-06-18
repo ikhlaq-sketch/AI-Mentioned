@@ -74,8 +74,9 @@ async function deepSearchFallback(
   domain: string,
   existingData?: any
 ) {
+  // ✅ FIXED: Updated model name
   const aiResponse = await callOpenRouter(
-    'google/gemini-flash-1.5',
+    'google/gemini-2.0-flash-001',
     'Extract all publicly available information about this website. Be comprehensive and factual.',
     `Website domain: ${domain}. Extract: company name, description, main products or services, target audience, key features, pricing if visible.`
   );

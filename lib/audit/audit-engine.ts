@@ -68,7 +68,7 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  // 🔥 Fire all LLM calls in parallel to avoid serverless timeout
+  // Fire all LLM calls in parallel to avoid serverless timeout
   const lookupPromises = models.flatMap((model) =>
     entities.map(async (entity) => {
       const response = await callOpenRouter(model, SYSTEM_PROMPT, primaryPrompt);
@@ -160,18 +160,19 @@ async function checkQueryBudget(
   return { allowed: true };
 }
 
+// ✅ FIXED: Updated model names for June 2026
 function getModels(plan: string, type: AuditType): string[] {
-  if (type === 'daily') return ['google/gemini-flash-1.5'];
+  if (type === 'daily') return ['google/gemini-2.0-flash-001'];
   const premium = ['scale', 'agency_pro'].includes(plan);
   return premium
     ? [
-        'google/gemini-flash-1.5',
+        'google/gemini-2.0-flash-001',
         'openai/gpt-4o-mini',
         'anthropic/claude-3-haiku',
-        'perplexity/llama-3.1-sonar-small-128k-online',
+        'perplexity/sonar-small',
       ]
     : [
-        'google/gemini-flash-1.5',
+        'google/gemini-2.0-flash-001',
         'openai/gpt-4o-mini',
         'anthropic/claude-3-haiku',
       ];
