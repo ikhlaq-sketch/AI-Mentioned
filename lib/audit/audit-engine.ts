@@ -65,12 +65,13 @@ export async function runAudit(
 
   const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
 
-  const lookupPromises = entities.flatMap((entity) =>
-    llmNames.map(async (llmName) => {
+  const mentions: any[] = [];
+  for (const entity of entities) {
+    for (const llmName of llmNames) {
       const simulatedPrompt = `You are acting as ${llmName}. ${SYSTEM_PROMPT} Answer this question exactly as ${llmName} would: "${primaryPrompt}"`;
       const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, simulatedPrompt);
       const wasMentioned = checkMention(response, entity.name);
-      return {
+      mentions.push({
         audit_id: audit.id,
         website_id: websiteId,
         user_id: userId,
@@ -80,11 +81,12 @@ export async function runAudit(
         entity_type: entity.type,
         was_mentioned: wasMentioned,
         full_response: response,
-      };
-    })
-  );
+      });
+      // Delay to avoid Gemini free tier rate limit (15 RPM)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
 
-  const mentions = await Promise.all(lookupPromises);
   await service.from('mentions').insert(mentions);
   await service.rpc('increment_queries', { uid: userId, count: totalQueries });
 
@@ -105,9 +107,7 @@ export async function runAudit(
     last_audit_at: new Date().toISOString(),
   };
   if (type === 'weekly' || type === 'baseline') {
-    updateData.next_audit_at = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    updateData.next_audit_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   }
   await service.from('websites').update(updateData).eq('id', websiteId);
 
@@ -135,10 +135,7 @@ async function checkQueryBudget(
     .single();
   if (!profile) throw new Error('Profile not found');
 
-  if (
-    profile.plan === 'starter' &&
-    profile.queries_used + needed > profile.queries_limit
-  ) {
+  if (profile.plan === 'starter' && profile.queries_used + needed > profile.queries_limit) {
     return { allowed: false, resetDate: profile.queries_reset_at };
   }
 
