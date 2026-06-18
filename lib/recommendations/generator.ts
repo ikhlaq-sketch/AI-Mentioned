@@ -84,9 +84,9 @@ export async function generateRecommendations(
         ? `Generate FAQPage JSON-LD for ${brandName}. Include 3 common questions and answers.`
         : `Generate Organization JSON-LD for ${brandName}.`;
 
-      // ✅ Model name is correct: anthropic/claude-3-haiku
+      // ✅ FREE MODEL for launch
       rec.fix_code = await callOpenRouter(
-        'anthropic/claude-3-haiku',
+        'google/gemini-2.0-flash-exp:free',
         'You are a structured data expert specializing in GEO and AEO optimization. Generate complete valid JSON-LD schema markup. Output only the raw HTML script tag. No markdown. No explanation. No code fences. Just the script tag.',
         prompt
       );

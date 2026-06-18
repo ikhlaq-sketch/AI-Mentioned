@@ -16,7 +16,6 @@ export async function runAudit(
 ) {
   const service = createServiceClient();
 
-  // Fetch website with prompts and competitors
   const { data: website, error: siteErr } = await service
     .from('websites')
     .select('*, prompts(*), competitors(*)')
@@ -46,7 +45,6 @@ export async function runAudit(
 
   const totalQueries = models.length * entities.length;
 
-  // Budget check
   const canAfford = await checkQueryBudget(userId, totalQueries);
   if (!canAfford.allowed) {
     const error = new Error('Query limit exceeded') as any;
@@ -54,7 +52,6 @@ export async function runAudit(
     throw error;
   }
 
-  // Insert audit record
   const { data: audit, error: auditErr } = await service
     .from('audits')
     .insert({
@@ -68,7 +65,6 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  // Fire all LLM calls in parallel to avoid serverless timeout
   const lookupPromises = models.flatMap((model) =>
     entities.map(async (entity) => {
       const response = await callOpenRouter(model, SYSTEM_PROMPT, primaryPrompt);
@@ -88,14 +84,9 @@ export async function runAudit(
   );
 
   const mentions = await Promise.all(lookupPromises);
-
-  // Save mentions
   await service.from('mentions').insert(mentions);
-
-  // Update queries used
   await service.rpc('increment_queries', { uid: userId, count: totalQueries });
 
-  // Finalise audit
   const score = calculateVisibilityScore(mentions);
   await service
     .from('audits')
@@ -106,7 +97,6 @@ export async function runAudit(
     })
     .eq('id', audit.id);
 
-  // Update website
   const prevScore = website.visibility_score;
   const updateData: any = {
     visibility_score: score,
@@ -120,13 +110,11 @@ export async function runAudit(
   }
   await service.from('websites').update(updateData).eq('id', websiteId);
 
-  // Post-audit actions
   if (type === 'weekly' || type === 'baseline') {
     await generateRecommendations(websiteId, userId);
     await sendWeeklyReport(website, score, profile.email);
   }
 
-  // Score drop alert (if drop > 10 points)
   if (prevScore > 0 && score < prevScore - 10) {
     await sendScoreDropAlert(website, prevScore, score, [], profile.email);
   }
@@ -160,20 +148,7 @@ async function checkQueryBudget(
   return { allowed: true };
 }
 
-// ✅ FIXED: Updated model names for June 2026
+// ✅ FREE MODEL for launch
 function getModels(plan: string, type: AuditType): string[] {
-  if (type === 'daily') return ['google/gemini-2.0-flash-001'];
-  const premium = ['scale', 'agency_pro'].includes(plan);
-  return premium
-    ? [
-        'google/gemini-2.0-flash-001',
-        'openai/gpt-4o-mini',
-        'anthropic/claude-3-haiku',
-        'perplexity/sonar-small',
-      ]
-    : [
-        'google/gemini-2.0-flash-001',
-        'openai/gpt-4o-mini',
-        'anthropic/claude-3-haiku',
-      ];
+  return ['google/gemini-2.0-flash-exp:free'];
 }

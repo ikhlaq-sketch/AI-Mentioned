@@ -19,12 +19,8 @@ export async function crawlWebsite(website: any) {
     const $ = cheerio.load(html);
     const pageTitle = $('title').first().text().trim();
     const metaDesc = $('meta[name="description"]').attr('content') || '';
-    const h1s = $('h1')
-      .map((_, el) => $(el).text().trim())
-      .get();
-    const h2s = $('h2')
-      .map((_, el) => $(el).text().trim())
-      .get();
+    const h1s = $('h1').map((_, el) => $(el).text().trim()).get();
+    const h2s = $('h2').map((_, el) => $(el).text().trim()).get();
     const schemas = $('script[type="application/ld+json"]')
       .map((_, el) => {
         try {
@@ -74,9 +70,9 @@ async function deepSearchFallback(
   domain: string,
   existingData?: any
 ) {
-  // ✅ FIXED: Updated model name
+  // ✅ FREE MODEL for launch
   const aiResponse = await callOpenRouter(
-    'google/gemini-2.0-flash-001',
+    'google/gemini-2.0-flash-exp:free',
     'Extract all publicly available information about this website. Be comprehensive and factual.',
     `Website domain: ${domain}. Extract: company name, description, main products or services, target audience, key features, pricing if visible.`
   );
