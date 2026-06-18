@@ -1,35 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const supabase = createServerSupabase();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Fetch the user's Lemon Squeezy customer ID
-  const { data: profile } = await supabase
+  const token = authHeader.split(' ')[1];
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const service = createServiceClient();
+  const { data: profile } = await service
     .from('profiles')
     .select('lemon_squeezy_customer_id')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single();
 
   if (!profile?.lemon_squeezy_customer_id) {
-    return NextResponse.json(
-      { error: 'No active subscription' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'No active subscription' }, { status: 400 });
   }
 
   try {
-    // Create a customer portal session
     const response = await fetch('https://api.lemonsqueezy.com/v1/customers/portal-sessions', {
       method: 'POST',
       headers: {
@@ -49,10 +54,7 @@ export async function POST(req: NextRequest) {
 
     const json = await response.json();
     const portalUrl = json.data?.attributes?.url;
-
-    if (!portalUrl) {
-      throw new Error('Failed to generate portal URL');
-    }
+    if (!portalUrl) throw new Error('Failed to generate portal URL');
 
     return NextResponse.json({ url: portalUrl });
   } catch (err: any) {

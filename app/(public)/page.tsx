@@ -113,29 +113,44 @@ export default function LandingPage() {
   }, []);
 
   const handleCheckout = async (variantId: string) => {
-    if (!user) {
+  if (!user) {
+    router.push('/login?redirect=pricing');
+    return;
+  }
+
+  setLoadingPlan(variantId);
+  try {
+    // Get the current session token
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      alert('Session expired. Please log in again.');
       router.push('/login?redirect=pricing');
       return;
     }
-    setLoadingPlan(variantId);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variant_id: variantId }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Checkout failed. Please try again.');
-      }
-    } catch (err) {
-      alert('Something went wrong. Please try again.');
-    } finally {
-      setLoadingPlan(null);
+
+    const res = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ variant_id: variantId }),
+    });
+
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert(data.error || 'Checkout failed. Please try again.');
     }
-  };
+  } catch (err) {
+    alert('Something went wrong. Please try again.');
+  } finally {
+    setLoadingPlan(null);
+  }
+};
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-purple-500/30">
