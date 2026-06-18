@@ -29,17 +29,43 @@ export async function POST(req: NextRequest) {
   try {
     const eventName = event.meta.event_name;
 
+    // ✅ Handle ALL payment events: order_created, subscription_created, subscription_updated
     if (
       eventName === 'subscription_created' ||
-      eventName === 'subscription_updated'
+      eventName === 'subscription_updated' ||
+      eventName === 'order_created'
     ) {
-      const attributes = event.data.attributes;
-      const userId = event.meta.custom_data.user_id;
-      const variantId = attributes.variant_id;
+      const customData = event.meta.custom_data || {};
+      const userId = customData.user_id;
 
+      if (!userId) {
+        console.error('Missing user_id in custom_data');
+        return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
+      }
+
+      let variantId: string | null = null;
+      let customerId: string | null = null;
+
+      // Extract data differently depending on event type
+      if (eventName === 'order_created') {
+        variantId = event.data.attributes.first_order_item?.variant_id?.toString();
+        customerId = event.data.attributes.customer_id?.toString();
+      } else {
+        variantId = event.data.attributes.variant_id?.toString();
+        customerId = event.data.attributes.customer_id?.toString();
+      }
+
+      if (!variantId) {
+        console.error('Missing variant_id');
+        return NextResponse.json({ error: 'Missing variant_id' }, { status: 400 });
+      }
+
+      // ✅ Use hardcoded variant IDs (no dependency on env vars)
       const plan = mapVariantToPlan(variantId);
-      if (!plan)
+      if (!plan) {
+        console.error('Unknown variant:', variantId);
         return NextResponse.json({ error: 'Unknown plan' }, { status: 400 });
+      }
 
       const limits = getPlanLimits(plan);
 
@@ -49,22 +75,27 @@ export async function POST(req: NextRequest) {
           plan,
           sites_limit: limits.sites,
           queries_limit: limits.queries,
-          lemon_squeezy_customer_id: attributes.customer_id,
-          lemon_squeezy_subscription_id: attributes.id,
+          lemon_squeezy_customer_id: customerId,
+          lemon_squeezy_subscription_id: event.data.id,
           subscription_status: 'active',
         })
         .eq('id', userId);
+
+      console.log(`✅ User ${userId} upgraded to ${plan}`);
     } else if (eventName === 'subscription_cancelled') {
-      const userId = event.meta.custom_data.user_id;
-      await service
-        .from('profiles')
-        .update({
-          plan: 'free',
-          sites_limit: 1,
-          queries_limit: 100,
-          subscription_status: 'cancelled',
-        })
-        .eq('id', userId);
+      const userId = event.meta.custom_data?.user_id;
+      if (userId) {
+        await service
+          .from('profiles')
+          .update({
+            plan: 'free',
+            sites_limit: 1,
+            queries_limit: 100,
+            subscription_status: 'cancelled',
+          })
+          .eq('id', userId);
+        console.log(`✅ User ${userId} subscription cancelled`);
+      }
     }
 
     return NextResponse.json({ received: true });
@@ -74,19 +105,15 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// ✅ Hardcoded variant IDs – no dependency on environment variables
 function mapVariantToPlan(variantId: string): string | null {
-  const {
-    LEMON_SQUEEZY_STARTER_VARIANT_ID: STARTER,
-    LEMON_SQUEEZY_GROWTH_VARIANT_ID: GROWTH,
-    LEMON_SQUEEZY_SCALE_VARIANT_ID: SCALE,
-    LEMON_SQUEEZY_AGENCY_PRO_VARIANT_ID: AGENCY_PRO,
-  } = process.env as Record<string, string>;
-
-  if (variantId === STARTER) return 'starter';
-  if (variantId === GROWTH) return 'growth';
-  if (variantId === SCALE) return 'scale';
-  if (variantId === AGENCY_PRO) return 'agency_pro';
-  return null;
+  const variants: Record<string, string> = {
+    '1796870': 'starter',
+    '1796861': 'growth',
+    '1796866': 'scale',
+    '1796868': 'agency_pro',
+  };
+  return variants[variantId] || null;
 }
 
 function getPlanLimits(plan: string) {
