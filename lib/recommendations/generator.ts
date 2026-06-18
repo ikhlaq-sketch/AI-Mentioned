@@ -76,17 +76,13 @@ export async function generateRecommendations(
 
   for (const rec of recommendationsToInsert) {
     if (rec.fix_type === 'schema' && !rec.fix_code) {
-      const brandName = (crawl.organization_name || 'Your Company').replace(
-        /"/g,
-        '\\"'
-      );
+      const brandName = (crawl.organization_name || 'Your Company').replace(/"/g, '\\"');
       const prompt = rec.title.includes('FAQ')
         ? `Generate FAQPage JSON-LD for ${brandName}. Include 3 common questions and answers.`
         : `Generate Organization JSON-LD for ${brandName}.`;
 
-      // ✅ FREE MODEL for launch
       rec.fix_code = await callOpenRouter(
-        'google/gemini-2.0-flash-exp:free',
+        'gemini-2.0-flash',
         'You are a structured data expert specializing in GEO and AEO optimization. Generate complete valid JSON-LD schema markup. Output only the raw HTML script tag. No markdown. No explanation. No code fences. Just the script tag.',
         prompt
       );

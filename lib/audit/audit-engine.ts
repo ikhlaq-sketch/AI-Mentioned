@@ -30,8 +30,6 @@ export async function runAudit(
     .single();
   if (!profile) throw new Error('Profile not found');
 
-  const plan = profile.plan;
-  const models = getModels(plan, type);
   const primaryPrompt =
     website.prompts?.[0]?.prompt_text ||
     `What are the top options for ${website.category}?`;
@@ -43,7 +41,7 @@ export async function runAudit(
     })),
   ];
 
-  const totalQueries = models.length * entities.length;
+  const totalQueries = 4 * entities.length;
 
   const canAfford = await checkQueryBudget(userId, totalQueries);
   if (!canAfford.allowed) {
@@ -65,15 +63,18 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  const lookupPromises = models.flatMap((model) =>
-    entities.map(async (entity) => {
-      const response = await callOpenRouter(model, SYSTEM_PROMPT, primaryPrompt);
+  const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
+
+  const lookupPromises = entities.flatMap((entity) =>
+    llmNames.map(async (llmName) => {
+      const simulatedPrompt = `You are acting as ${llmName}. ${SYSTEM_PROMPT} Answer this question exactly as ${llmName} would: "${primaryPrompt}"`;
+      const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, simulatedPrompt);
       const wasMentioned = checkMention(response, entity.name);
       return {
         audit_id: audit.id,
         website_id: websiteId,
         user_id: userId,
-        llm_name: model,
+        llm_name: llmName,
         prompt_text: primaryPrompt,
         entity_name: entity.name,
         entity_type: entity.type,
@@ -146,9 +147,4 @@ async function checkQueryBudget(
   }
 
   return { allowed: true };
-}
-
-// ✅ FREE MODEL for launch
-function getModels(plan: string, type: AuditType): string[] {
-  return ['google/gemini-2.0-flash-exp:free'];
 }

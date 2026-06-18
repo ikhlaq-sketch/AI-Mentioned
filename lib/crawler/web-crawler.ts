@@ -23,22 +23,15 @@ export async function crawlWebsite(website: any) {
     const h2s = $('h2').map((_, el) => $(el).text().trim()).get();
     const schemas = $('script[type="application/ld+json"]')
       .map((_, el) => {
-        try {
-          return JSON.parse($(el).html() || '');
-        } catch {
-          return null;
-        }
+        try { return JSON.parse($(el).html() || ''); }
+        catch { return null; }
       })
       .get()
       .filter(Boolean);
 
     if (!pageTitle && !metaDesc && h1s.length === 0) {
       return await deepSearchFallback(website, service, domain, {
-        pageTitle,
-        metaDesc,
-        h1s,
-        h2s,
-        schemas,
+        pageTitle, metaDesc, h1s, h2s, schemas,
       });
     }
 
@@ -70,9 +63,8 @@ async function deepSearchFallback(
   domain: string,
   existingData?: any
 ) {
-  // ✅ FREE MODEL for launch
   const aiResponse = await callOpenRouter(
-    'google/gemini-2.0-flash-exp:free',
+    'gemini-2.0-flash',
     'Extract all publicly available information about this website. Be comprehensive and factual.',
     `Website domain: ${domain}. Extract: company name, description, main products or services, target audience, key features, pricing if visible.`
   );

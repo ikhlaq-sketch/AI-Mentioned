@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
+const GEMINI_API_KEY = process.env.OPENROUTER_API_KEY!;
 
 export async function callOpenRouter(
   model: string,
@@ -9,24 +8,22 @@ export async function callOpenRouter(
   userPrompt: string
 ): Promise<string> {
   const response = await axios.post(
-    'https://openrouter.ai/api/v1/chat/completions',
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
+      system_instruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: [{
+        parts: [{ text: userPrompt }]
+      }]
     },
     {
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': APP_URL,
-        'X-Title': 'AIMentioned',
-      },
+      }
     }
   );
-  return response.data.choices[0].message.content;
+  return response.data.candidates[0].content.parts[0].text;
 }
 
 export function checkMention(response: string, entityName: string): boolean {
