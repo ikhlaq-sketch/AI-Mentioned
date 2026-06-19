@@ -36,10 +36,12 @@ export async function crawlWebsite(website: any) {
 
 async function deepSearchFallback(website: any, service: any, domain: string, existingData?: any) {
   try {
-    const aiResponse = await callOpenRouter('llama-2-7b',
-      'Extract all publicly available information about this website.',
-      `Website domain: ${domain}. Extract: company name, description, main products or services.`
-    );
+  // Change line 34 from 'llama-2-7b' to your working gemma model
+const aiResponse = await callOpenRouter(
+  '@cf/google/gemma-2b-it-lora',
+  'Extract all publicly available information about this website.',
+  `Website domain: ${domain}. Extract: company name, description, main products or services.`
+);
     await service.from('crawl_data').insert({
       website_id: website.id, user_id: website.user_id,
       crawl_method: 'deep_search', products_services: [aiResponse],

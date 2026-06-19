@@ -6,8 +6,14 @@ export async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
+  // ✅ Dynamically map your working Cloudflare models or fallback safely
+  let modelPath = model;
+  if (!model.startsWith('@cf/')) {
+    modelPath = '@cf/meta/llama-3.1-8b-instruct'; 
+  }
+
   const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${modelPath}`,
     {
       method: 'POST',
       headers: {
@@ -19,7 +25,7 @@ export async function callOpenRouter(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 1000,   // ✅ increased from 500
+        max_tokens: 1000,
       }),
     }
   );

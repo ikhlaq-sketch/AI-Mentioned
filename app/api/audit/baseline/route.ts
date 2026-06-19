@@ -7,10 +7,10 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabase();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
+  
+  // ✅ Replaced getSession() with getUser() to eliminate the warning
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runAudit(website_id, session.user.id, 'baseline');
+    const result = await runAudit(website_id, user.id, 'baseline');
     return NextResponse.json(result);
   } catch (err: any) {
     if (err.message === 'Query limit exceeded') {
