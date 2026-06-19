@@ -36,7 +36,7 @@ export async function crawlWebsite(website: any) {
 
 async function deepSearchFallback(website: any, service: any, domain: string, existingData?: any) {
   try {
-    const aiResponse = await callOpenRouter('gemini-2.0-flash',
+    const aiResponse = await callOpenRouter('llama-3.1-8b-instruct',
       'Extract all publicly available information about this website.',
       `Website domain: ${domain}. Extract: company name, description, main products or services.`
     );

@@ -34,8 +34,7 @@ export async function runAudit(
   const brandName = website.brand_name;
   const competitors = (website.competitors || []).slice(0, 2).map((c: any) => c.brand_name);
 
-  // Only 1 query for daily scan
-  const totalQueries = type === 'daily' ? 1 : 1;
+  const totalQueries = 1;
 
   const canAfford = await checkQueryBudget(userId, totalQueries);
   if (!canAfford.allowed) {
@@ -57,7 +56,6 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  // ✅ SINGLE API CALL - Gemini simulates all 4 LLMs for all 3 entities
   const prompt = `Question: "${primaryPrompt}"
 
 Answer this question as FOUR different AI assistants would: Gemini, ChatGPT, Claude, and Perplexity.
@@ -80,14 +78,13 @@ For each AI assistant, provide their answer in this exact format:
 [Perplexity's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
 ---END---`;
 
-  const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, prompt);
+  const response = await callOpenRouter('llama-3.1-8b-instruct', SYSTEM_PROMPT, prompt);
 
-  // Parse the single response into 4 separate responses
   const llmResponses: Record<string, string> = {};
   const sections = response.split('---');
-  
+
   for (let i = 0; i < sections.length; i++) {
-    const section = sections[i].trim();
+    const section = sections[i].trim().toUpperCase();
     if (['GEMINI', 'CHATGPT', 'CLAUDE', 'PERPLEXITY'].includes(section)) {
       const nextSection = sections[i + 1]?.trim();
       if (nextSection && nextSection !== 'END') {
@@ -96,7 +93,6 @@ For each AI assistant, provide their answer in this exact format:
     }
   }
 
-  // Create mentions for all entities across all LLMs
   const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
   const entities = [
     { name: brandName, type: 'brand' },
