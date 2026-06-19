@@ -9,11 +9,7 @@ type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 const SYSTEM_PROMPT =
   "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
 
-export async function runAudit(
-  websiteId: string,
-  userId: string,
-  type: AuditType
-) {
+export async function runAudit(websiteId: string, userId: string, type: AuditType) {
   const service = createServiceClient();
 
   const { data: website, error: siteErr } = await service
@@ -30,9 +26,7 @@ export async function runAudit(
     .single();
   if (!profile) throw new Error('Profile not found');
 
-  const primaryPrompt =
-    website.prompts?.[0]?.prompt_text ||
-    `What are the top options for ${website.category}?`;
+  const primaryPrompt = website.prompts?.[0]?.prompt_text || `What are the top options for ${website.category}?`;
   const entities = [
     { name: website.brand_name, type: 'brand' },
     ...(website.competitors || []).slice(0, 2).map((c: any) => ({
@@ -64,52 +58,54 @@ export async function runAudit(
   if (auditErr) throw new Error('Failed to create audit');
 
   const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
-
   const mentions: any[] = [];
+
   for (const entity of entities) {
     for (const llmName of llmNames) {
-      const simulatedPrompt = `You are acting as ${llmName}. ${SYSTEM_PROMPT} Answer this question exactly as ${llmName} would: "${primaryPrompt}"`;
-      const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, simulatedPrompt);
-      const wasMentioned = checkMention(response, entity.name);
-      mentions.push({
-        audit_id: audit.id,
-        website_id: websiteId,
-        user_id: userId,
-        llm_name: llmName,
-        prompt_text: primaryPrompt,
-        entity_name: entity.name,
-        entity_type: entity.type,
-        was_mentioned: wasMentioned,
-        full_response: response,
-      });
-      // Delay to avoid Gemini free tier rate limit (15 RPM)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      try {
+        const simulatedPrompt = `You are acting as ${llmName}. ${SYSTEM_PROMPT} Answer this question exactly as ${llmName} would: "${primaryPrompt}"`;
+        const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, simulatedPrompt);
+        const wasMentioned = checkMention(response, entity.name);
+        
+        mentions.push({
+          audit_id: audit.id,
+          website_id: websiteId,
+          user_id: userId,
+          llm_name: llmName,
+          prompt_text: primaryPrompt,
+          entity_name: entity.name,
+          entity_type: entity.type,
+          was_mentioned: wasMentioned,
+          full_response: response,
+        });
+        
+        // Wait 6 seconds between requests
+        await new Promise(resolve => setTimeout(resolve, 6000));
+      } catch (err: any) {
+        console.error(`Failed for ${llmName}/${entity.name}:`, err.message);
+      }
     }
   }
+
+  if (mentions.length === 0) throw new Error('All API calls failed');
 
   await service.from('mentions').insert(mentions);
   await service.rpc('increment_queries', { uid: userId, count: totalQueries });
 
   const score = calculateVisibilityScore(mentions);
-  await service
-    .from('audits')
-    .update({
-      status: 'completed',
-      queries_consumed: totalQueries,
-      visibility_score: score,
-    })
+  await service.from('audits')
+    .update({ status: 'completed', queries_consumed: totalQueries, visibility_score: score })
     .eq('id', audit.id);
 
   const prevScore = website.visibility_score;
-  const updateData: any = {
-    visibility_score: score,
-    previous_score: prevScore,
-    last_audit_at: new Date().toISOString(),
-  };
-  if (type === 'weekly' || type === 'baseline') {
-    updateData.next_audit_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  }
-  await service.from('websites').update(updateData).eq('id', websiteId);
+  await service.from('websites')
+    .update({
+      visibility_score: score,
+      previous_score: prevScore,
+      last_audit_at: new Date().toISOString(),
+      next_audit_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+    .eq('id', websiteId);
 
   if (type === 'weekly' || type === 'baseline') {
     await generateRecommendations(websiteId, userId);
@@ -123,10 +119,7 @@ export async function runAudit(
   return { audit_id: audit.id, score, queries_consumed: totalQueries };
 }
 
-async function checkQueryBudget(
-  userId: string,
-  needed: number
-): Promise<{ allowed: boolean; resetDate?: string }> {
+async function checkQueryBudget(userId: string, needed: number): Promise<{ allowed: boolean; resetDate?: string }> {
   const service = createServiceClient();
   const { data: profile } = await service
     .from('profiles')
@@ -134,14 +127,8 @@ async function checkQueryBudget(
     .eq('id', userId)
     .single();
   if (!profile) throw new Error('Profile not found');
-
-  if (profile.plan === 'starter' && profile.queries_used + needed > profile.queries_limit) {
-    return { allowed: false, resetDate: profile.queries_reset_at };
-  }
-
   if (profile.queries_used + needed > profile.queries_limit) {
     return { allowed: false, resetDate: profile.queries_reset_at };
   }
-
   return { allowed: true };
 }
