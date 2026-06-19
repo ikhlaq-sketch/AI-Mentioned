@@ -25,7 +25,7 @@ export async function generateRecommendations(websiteId: string, userId: string)
     if (rec.fix_type === 'schema' && !rec.fix_code) {
       const brandName = (crawl.organization_name || 'Your Company').replace(/"/g, '\\"');
       const prompt = rec.title.includes('FAQ') ? `Generate FAQPage JSON-LD for ${brandName}.` : `Generate Organization JSON-LD for ${brandName}.`;
-      rec.fix_code = await callOpenRouter('llama-3.1-8b-instruct', 'You are a structured data expert. Output only the raw HTML script tag. No markdown.', prompt);
+      rec.fix_code = await callOpenRouter('llama-2-7b', 'You are a structured data expert. Output only the raw HTML script tag. No markdown.', prompt);
       rec.fix_code = rec.fix_code.trim();
     }
   }

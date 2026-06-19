@@ -7,7 +7,7 @@ export async function callOpenRouter(
   userPrompt: string
 ): Promise<string> {
   const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-2-7b-chat-int8`,
     {
       method: 'POST',
       headers: {

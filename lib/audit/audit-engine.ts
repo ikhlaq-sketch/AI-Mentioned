@@ -78,7 +78,7 @@ For each AI assistant, provide their answer in this exact format:
 [Perplexity's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
 ---END---`;
 
-  const response = await callOpenRouter('llama-3.1-8b-instruct', SYSTEM_PROMPT, prompt);
+  const response = await callOpenRouter('llama-2-7b', SYSTEM_PROMPT, prompt);
 
   const llmResponses: Record<string, string> = {};
   const sections = response.split('---');

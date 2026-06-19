@@ -36,7 +36,7 @@ export async function crawlWebsite(website: any) {
 
 async function deepSearchFallback(website: any, service: any, domain: string, existingData?: any) {
   try {
-    const aiResponse = await callOpenRouter('llama-3.1-8b-instruct',
+    const aiResponse = await callOpenRouter('llama-2-7b',
       'Extract all publicly available information about this website.',
       `Website domain: ${domain}. Extract: company name, description, main products or services.`
     );
