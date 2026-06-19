@@ -19,16 +19,23 @@ export async function callOpenRouter(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 500,
+        max_tokens: 1000,   // ✅ increased from 500
       }),
     }
   );
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Cloudflare AI HTTP error ${response.status}: ${errorText}`);
+  }
+
   const data = await response.json();
+
   if (!data.success) {
     throw new Error(`Cloudflare AI error: ${JSON.stringify(data.errors)}`);
   }
-  return data.result.response;
+
+  return data.result?.response || '';
 }
 
 export function checkMention(response: string, entityName: string): boolean {

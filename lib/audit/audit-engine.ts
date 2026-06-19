@@ -7,7 +7,7 @@ import { sendWeeklyReport, sendScoreDropAlert } from '@/lib/email/alerts';
 type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 
 const SYSTEM_PROMPT =
-  "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
+  "You are an AI search visibility analyst. Answer only with the requested JSON format, no extra text.";
 
 export async function runAudit(
   websiteId: string,
@@ -30,7 +30,8 @@ export async function runAudit(
     .single();
   if (!profile) throw new Error('Profile not found');
 
-  const primaryPrompt = website.prompts?.[0]?.prompt_text || `What are the top options for ${website.category}?`;
+  const primaryPrompt = website.prompts?.[0]?.prompt_text ||
+    `What are the top options for ${website.category}?`;
   const brandName = website.brand_name;
   const competitors = (website.competitors || []).slice(0, 2).map((c: any) => c.brand_name);
 
@@ -56,71 +57,106 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  const prompt = `Question: "${primaryPrompt}"
+  // ✅ Honest JSON prompt – no roleplay
+  const prompt = `Analyze the AI search visibility for the brand "${brandName}" for the query: "${primaryPrompt}"
 
-Answer this question as FOUR different AI assistants would: Gemini, ChatGPT, Claude, and Perplexity.
+Based on your training knowledge, provide an honest analysis of how likely this brand is to appear when users ask this question in different AI systems.
 
-For each AI assistant, provide their answer in this exact format:
-
----GEMINI---
-[Gemini's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
----END---
-
----CHATGPT---
-[ChatGPT's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
----END---
-
----CLAUDE---
-[Claude's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
----END---
-
----PERPLEXITY---
-[Perplexity's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
----END---`;
-
-  const response = await callOpenRouter('llama-2-7b', SYSTEM_PROMPT, prompt);
-
-  const llmResponses: Record<string, string> = {};
-  const sections = response.split('---');
-
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i].trim().toUpperCase();
-    if (['GEMINI', 'CHATGPT', 'CLAUDE', 'PERPLEXITY'].includes(section)) {
-      const nextSection = sections[i + 1]?.trim();
-      if (nextSection && nextSection !== 'END') {
-        llmResponses[section.toLowerCase()] = nextSection;
-      }
+Return ONLY this exact JSON with no other text:
+{
+  "gemini": {
+    "mentioned": true,
+    "confidence": "high",
+    "reasoning": "one sentence explanation"
+  },
+  "chatgpt": {
+    "mentioned": false,
+    "confidence": "medium",
+    "reasoning": "one sentence explanation"
+  },
+  "claude": {
+    "mentioned": false,
+    "confidence": "low",
+    "reasoning": "one sentence explanation"
+  },
+  "perplexity": {
+    "mentioned": true,
+    "confidence": "medium",
+    "reasoning": "one sentence explanation"
+  },
+  "competitors": {
+    "${competitors[0] || 'competitor1'}": {
+      "gemini": true, "chatgpt": true, "claude": false, "perplexity": true
+    }${
+      competitors[1]
+        ? `,\n    "${competitors[1]}": {
+      "gemini": true, "chatgpt": false, "claude": true, "perplexity": true
+    }`
+        : ''
     }
   }
+}`;
 
-  const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
-  const entities = [
-    { name: brandName, type: 'brand' },
-    ...competitors.map((name: string) => ({ name, type: 'competitor' })),
-  ];
+  const response = await callOpenRouter('llama-3.1-8b', SYSTEM_PROMPT, prompt);
 
+  // ✅ Safe JSON parsing
+  let parsedResult: any = {};
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      parsedResult = JSON.parse(jsonMatch[0]);
+    }
+  } catch (e) {
+    console.error('Failed to parse AI response:', e);
+    // Fallback: mark all as not mentioned rather than crash
+    parsedResult = {
+      gemini: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
+      chatgpt: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
+      claude: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
+      perplexity: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
+    };
+  }
+
+  // Build mentions from parsed JSON
+  const llmNames = ['gemini', 'chatgpt', 'claude', 'perplexity'];
   const mentions: any[] = [];
 
-  for (const entity of entities) {
+  // Brand mentions
+  for (const llmName of llmNames) {
+    const llmData = parsedResult[llmName] || {};
+    mentions.push({
+      audit_id: audit.id,
+      website_id: websiteId,
+      user_id: userId,
+      llm_name: llmName,
+      prompt_text: primaryPrompt,
+      entity_name: brandName,
+      entity_type: 'brand',
+      was_mentioned: llmData.mentioned || false,
+      full_response: llmData.reasoning || '',
+    });
+  }
+
+  // Competitor mentions
+  for (const comp of competitors) {
+    const compData = parsedResult.competitors?.[comp] || {};
     for (const llmName of llmNames) {
-      const llmResponse = llmResponses[llmName.toLowerCase()] || '';
-      const wasMentioned = checkMention(llmResponse, entity.name);
       mentions.push({
         audit_id: audit.id,
         website_id: websiteId,
         user_id: userId,
         llm_name: llmName,
         prompt_text: primaryPrompt,
-        entity_name: entity.name,
-        entity_type: entity.type,
-        was_mentioned: wasMentioned,
-        full_response: llmResponse,
+        entity_name: comp,
+        entity_type: 'competitor',
+        was_mentioned: compData[llmName] || false,
+        full_response: '',
       });
     }
   }
 
   await service.from('mentions').insert(mentions);
-  await service.rpc('increment_queries', { uid: userId, count: totalQueries });
+  await service.rpc('increment_queries', { uid: userId, count: totalQueries }); // ✅ Now exists after running SQL
 
   const score = calculateVisibilityScore(mentions);
   await service
