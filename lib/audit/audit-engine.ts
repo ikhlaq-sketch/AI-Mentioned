@@ -9,7 +9,11 @@ type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 const SYSTEM_PROMPT =
   "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
 
-export async function runAudit(websiteId: string, userId: string, type: AuditType) {
+export async function runAudit(
+  websiteId: string,
+  userId: string,
+  type: AuditType
+) {
   const service = createServiceClient();
 
   const { data: website, error: siteErr } = await service
@@ -27,15 +31,11 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
   if (!profile) throw new Error('Profile not found');
 
   const primaryPrompt = website.prompts?.[0]?.prompt_text || `What are the top options for ${website.category}?`;
-  const entities = [
-    { name: website.brand_name, type: 'brand' },
-    ...(website.competitors || []).slice(0, 2).map((c: any) => ({
-      name: c.brand_name,
-      type: 'competitor',
-    })),
-  ];
+  const brandName = website.brand_name;
+  const competitors = (website.competitors || []).slice(0, 2).map((c: any) => c.brand_name);
 
-  const totalQueries = 4 * entities.length;
+  // Only 1 query for daily scan
+  const totalQueries = type === 'daily' ? 1 : 1;
 
   const canAfford = await checkQueryBudget(userId, totalQueries);
   if (!canAfford.allowed) {
@@ -57,55 +57,91 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
-  const mentions: any[] = [];
+  // ✅ SINGLE API CALL - Gemini simulates all 4 LLMs for all 3 entities
+  const prompt = `Question: "${primaryPrompt}"
 
-  for (const entity of entities) {
-    for (const llmName of llmNames) {
-      try {
-        const simulatedPrompt = `You are acting as ${llmName}. ${SYSTEM_PROMPT} Answer this question exactly as ${llmName} would: "${primaryPrompt}"`;
-        const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, simulatedPrompt);
-        const wasMentioned = checkMention(response, entity.name);
-        
-        mentions.push({
-          audit_id: audit.id,
-          website_id: websiteId,
-          user_id: userId,
-          llm_name: llmName,
-          prompt_text: primaryPrompt,
-          entity_name: entity.name,
-          entity_type: entity.type,
-          was_mentioned: wasMentioned,
-          full_response: response,
-        });
-        
-        // Wait 6 seconds between requests
-        await new Promise(resolve => setTimeout(resolve, 6000));
-      } catch (err: any) {
-        console.error(`Failed for ${llmName}/${entity.name}:`, err.message);
+Answer this question as FOUR different AI assistants would: Gemini, ChatGPT, Claude, and Perplexity.
+
+For each AI assistant, provide their answer in this exact format:
+
+---GEMINI---
+[Gemini's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
+---END---
+
+---CHATGPT---
+[ChatGPT's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
+---END---
+
+---CLAUDE---
+[Claude's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
+---END---
+
+---PERPLEXITY---
+[Perplexity's answer here. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}]
+---END---`;
+
+  const response = await callOpenRouter('gemini-2.0-flash', SYSTEM_PROMPT, prompt);
+
+  // Parse the single response into 4 separate responses
+  const llmResponses: Record<string, string> = {};
+  const sections = response.split('---');
+  
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i].trim();
+    if (['GEMINI', 'CHATGPT', 'CLAUDE', 'PERPLEXITY'].includes(section)) {
+      const nextSection = sections[i + 1]?.trim();
+      if (nextSection && nextSection !== 'END') {
+        llmResponses[section.toLowerCase()] = nextSection;
       }
     }
   }
 
-  if (mentions.length === 0) throw new Error('All API calls failed');
+  // Create mentions for all entities across all LLMs
+  const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
+  const entities = [
+    { name: brandName, type: 'brand' },
+    ...competitors.map((name: string) => ({ name, type: 'competitor' })),
+  ];
+
+  const mentions: any[] = [];
+
+  for (const entity of entities) {
+    for (const llmName of llmNames) {
+      const llmResponse = llmResponses[llmName.toLowerCase()] || '';
+      const wasMentioned = checkMention(llmResponse, entity.name);
+      mentions.push({
+        audit_id: audit.id,
+        website_id: websiteId,
+        user_id: userId,
+        llm_name: llmName,
+        prompt_text: primaryPrompt,
+        entity_name: entity.name,
+        entity_type: entity.type,
+        was_mentioned: wasMentioned,
+        full_response: llmResponse,
+      });
+    }
+  }
 
   await service.from('mentions').insert(mentions);
   await service.rpc('increment_queries', { uid: userId, count: totalQueries });
 
   const score = calculateVisibilityScore(mentions);
-  await service.from('audits')
+  await service
+    .from('audits')
     .update({ status: 'completed', queries_consumed: totalQueries, visibility_score: score })
     .eq('id', audit.id);
 
   const prevScore = website.visibility_score;
-  await service.from('websites')
-    .update({
-      visibility_score: score,
-      previous_score: prevScore,
-      last_audit_at: new Date().toISOString(),
-      next_audit_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    })
-    .eq('id', websiteId);
+  const updateData: any = {
+    visibility_score: score,
+    previous_score: prevScore,
+    last_audit_at: new Date().toISOString(),
+  };
+  if (type === 'weekly' || type === 'baseline') {
+    updateData.next_audit_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  await service.from('websites').update(updateData).eq('id', websiteId);
 
   if (type === 'weekly' || type === 'baseline') {
     await generateRecommendations(websiteId, userId);
