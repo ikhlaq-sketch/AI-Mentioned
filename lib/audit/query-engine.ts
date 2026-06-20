@@ -1,6 +1,9 @@
 const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID!;
 const CF_API_TOKEN = process.env.OPENROUTER_API_KEY!;
 
+console.log("DEBUG: Account ID length is:", CF_ACCOUNT_ID.length);
+console.log("DEBUG: Account ID starts with:", CF_ACCOUNT_ID.substring(0, 5));
+
 export async function callOpenRouter(
   model: string,
   systemPrompt: string,
