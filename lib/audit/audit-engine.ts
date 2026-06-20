@@ -57,7 +57,6 @@ export async function runAudit(
     .single();
   if (auditErr) throw new Error('Failed to create audit');
 
-  // ✅ Honest JSON prompt – no roleplay
   const prompt = `Analyze the AI search visibility for the brand "${brandName}" for the query: "${primaryPrompt}"
 
 Based on your training knowledge, provide an honest analysis of how likely this brand is to appear when users ask this question in different AI systems.
@@ -99,7 +98,6 @@ Return ONLY this exact JSON with no other text:
 
   const response = await callOpenRouter('llama-3.1-8b', SYSTEM_PROMPT, prompt);
 
-  // ✅ Safe JSON parsing
   let parsedResult: any = {};
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -108,7 +106,6 @@ Return ONLY this exact JSON with no other text:
     }
   } catch (e) {
     console.error('Failed to parse AI response:', e);
-    // Fallback: mark all as not mentioned rather than crash
     parsedResult = {
       gemini: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
       chatgpt: { mentioned: false, confidence: 'low', reasoning: 'Parse error' },
@@ -117,11 +114,10 @@ Return ONLY this exact JSON with no other text:
     };
   }
 
-  // Build mentions from parsed JSON
   const llmNames = ['gemini', 'chatgpt', 'claude', 'perplexity'];
   const mentions: any[] = [];
 
-  // Brand mentions
+  // Brand mentions data transformation
   for (const llmName of llmNames) {
     const llmData = parsedResult[llmName] || {};
     mentions.push({
@@ -133,11 +129,12 @@ Return ONLY this exact JSON with no other text:
       entity_name: brandName,
       entity_type: 'brand',
       was_mentioned: llmData.mentioned || false,
+      mention_position: null,
       full_response: llmData.reasoning || '',
     });
   }
 
-  // Competitor mentions
+  // Competitor mentions data transformation
   for (const comp of competitors) {
     const compData = parsedResult.competitors?.[comp] || {};
     for (const llmName of llmNames) {
@@ -150,13 +147,20 @@ Return ONLY this exact JSON with no other text:
         entity_name: comp,
         entity_type: 'competitor',
         was_mentioned: compData[llmName] || false,
+        mention_position: null,
         full_response: '',
       });
     }
   }
 
-  await service.from('mentions').insert(mentions);
-  await service.rpc('increment_queries', { uid: userId, count: totalQueries }); // ✅ Now exists after running SQL
+  // Insert updates with error parsing
+  const { error: mentionsInsertErr } = await service.from('mentions').insert(mentions);
+  if (mentionsInsertErr) {
+    console.error('🚨 DATABASE ERROR SAVING MENTIONS:', mentionsInsertErr);
+    throw new Error(`Mentions insert failed: ${mentionsInsertErr.message}`);
+  }
+
+  await service.rpc('increment_queries', { uid: userId, count: totalQueries });
 
   const score = calculateVisibilityScore(mentions);
   await service
@@ -170,7 +174,7 @@ Return ONLY this exact JSON with no other text:
     previous_score: prevScore,
     last_audit_at: new Date().toISOString(),
   };
-  if (type === 'weekly' || type === 'baseline') {
+  if (type === 'weekly' || type === 'baseline' || type === 'manual') {
     updateData.next_audit_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   }
   await service.from('websites').update(updateData).eq('id', websiteId);

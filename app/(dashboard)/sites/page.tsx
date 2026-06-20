@@ -3,6 +3,10 @@ import { Globe } from 'lucide-react';
 import Link from 'next/link';
 import AddSiteModal from '@/components/AddSiteModal';
 
+// Force Next.js to fetch fresh database rows on every load/navigation
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 export default async function SitesPage() {
   const supabase = createServerSupabase();
   const {
