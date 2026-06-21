@@ -6,6 +6,15 @@ export default async function RecommendationsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // ✅ Fetch profile plan
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan')
+    .eq('id', user.id)
+    .single();
+
+  const isFreePlan = profile?.plan === 'free';
+
   const { data: recs } = await supabase
     .from('recommendations')
     .select('*')
@@ -20,6 +29,7 @@ export default async function RecommendationsPage() {
         websiteId=""
         userId={user.id}
         githubConnected={false}
+        isFreePlan={isFreePlan}
       />
     </div>
   );
