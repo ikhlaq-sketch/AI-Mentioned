@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { BarChart3, MessageSquare, Search, Lightbulb } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2 } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -20,6 +21,8 @@ export default function SiteDetailTabs({
   userPlan?: string;
 }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isLoading, setIsLoading] = useState(!site.last_audit_at); // Show loading if no audit yet
+  const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
   const tabs = [
@@ -28,6 +31,33 @@ export default function SiteDetailTabs({
     { id: 'audits', label: 'Audit History', icon: Search },
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
+
+  // ✅ Poll until audit completes, then show data
+  useEffect(() => {
+    if (!site.last_audit_at) {
+      const interval = setInterval(() => {
+        router.refresh();
+      }, 3000); // Check every 3 seconds
+      return () => clearInterval(interval);
+    } else {
+      setIsLoading(false);
+    }
+  }, [site.last_audit_at, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mb-4" />
+        <p className="text-white font-medium">Running AI Analysis...</p>
+        <p className="text-sm text-[#94a3b8] mt-2">
+          {isFreePlan 
+            ? 'Generating visibility insights...' 
+            : 'Querying ChatGPT, Gemini, Claude & Perplexity...'}
+        </p>
+        <p className="text-xs text-[#64748b] mt-4">This may take a few seconds</p>
+      </div>
+    );
+  }
 
   return (
     <div>
