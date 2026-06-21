@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, GitPullRequest, CheckCircle, Lock, ArrowUpCircle, X, Shield, Zap, Eye, ExternalLink } from 'lucide-react';
+import { Copy, GitPullRequest, CheckCircle, Lock, ArrowUpCircle, X, Shield, Zap, Eye, ExternalLink, Edit3 } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function RecommendationsList({
@@ -29,6 +29,7 @@ export default function RecommendationsList({
   const [connectingGitHub, setConnectingGitHub] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showGitHubInput, setShowGitHubInput] = useState(false);
+  const [editingRepo, setEditingRepo] = useState(false);
 
   const copyFixCode = (code: string, id: string) => {
     if (isFreePlan) return;
@@ -93,6 +94,26 @@ export default function RecommendationsList({
     }
   };
 
+  const updateRepoName = async () => {
+    if (!repoName) { alert('Please enter a repository name'); return; }
+    try {
+      const res = await fetch('/api/github/save-repo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website_id: websiteId, repo: repoName }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Repository updated! Refresh the page to see changes.');
+        setEditingRepo(false);
+      } else {
+        alert(data.error || 'Failed to update repo');
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* ✅ Upgrade Modal for Free Users */}
@@ -123,7 +144,7 @@ export default function RecommendationsList({
         </div>
       )}
 
-      {/* ✅ GitHub Connect - Only show if not hidden and has websiteId */}
+      {/* ✅ GitHub Connect - Not connected */}
       {!hideGitHub && websiteId && !githubConnected && !isFreePlan && (
         <div className="bg-gradient-to-r from-indigo-600/10 to-purple-600/10 border border-indigo-400/20 rounded-xl p-4 mb-4">
           {!showGitHubInput ? (
@@ -132,10 +153,7 @@ export default function RecommendationsList({
                 <GitPullRequest className="text-indigo-400" size={18} />
                 <span className="text-white text-sm font-medium">Auto-deploy fixes via GitHub</span>
               </div>
-              <button
-                onClick={() => setShowGitHubInput(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2"
-              >
+              <button onClick={() => setShowGitHubInput(true)} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2">
                 <ExternalLink size={14} />
                 Connect GitHub
               </button>
@@ -145,50 +163,52 @@ export default function RecommendationsList({
               <h3 className="text-white font-medium mb-2">Connect GitHub Repository</h3>
               <p className="text-sm text-[#94a3b8] mb-3">Enter your repository to enable automatic Pull Requests for fixes.</p>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={repoName}
-                  onChange={(e) => setRepoName(e.target.value)}
-                  placeholder="owner/repository"
-                  className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm"
-                />
-                <button
-                  onClick={handleConnectGitHub}
-                  disabled={connectingGitHub}
-                  className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2"
-                >
-                  {connectingGitHub ? <LoadingSpinner size={14} /> : <GitPullRequest size={14} />}
-                  Connect
+                <input type="text" value={repoName} onChange={(e) => setRepoName(e.target.value)} placeholder="owner/repository" className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm" />
+                <button onClick={handleConnectGitHub} disabled={connectingGitHub} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2">
+                  {connectingGitHub ? <LoadingSpinner size={14} /> : <GitPullRequest size={14} />}Connect
                 </button>
               </div>
-              <button onClick={() => setShowGitHubInput(false)} className="text-xs text-[#94a3b8] hover:text-white mt-2">
-                Cancel
+              <button onClick={() => setShowGitHubInput(false)} className="text-xs text-[#94a3b8] hover:text-white mt-2">Cancel</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ✅ GitHub Connected - Editable */}
+      {githubConnected && !isFreePlan && (
+        <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="text-green-400" size={16} />
+            <span className="text-green-400 text-sm font-medium">GitHub Connected</span>
+          </div>
+          {editingRepo ? (
+            <div className="flex gap-2">
+              <input type="text" value={repoName} onChange={(e) => setRepoName(e.target.value)} placeholder="owner/repository" className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm" />
+              <button onClick={updateRepoName} className="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-white text-sm">Save</button>
+              <button onClick={() => setEditingRepo(false)} className="bg-gray-600 hover:bg-gray-500 px-3 py-1.5 rounded-lg text-white text-sm">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-green-300 text-xs">{repoName || githubRepo}</span>
+              <button onClick={() => setEditingRepo(true)} className="text-green-400 hover:text-green-300">
+                <Edit3 size={14} />
               </button>
             </div>
           )}
         </div>
       )}
 
-      {githubConnected && (
-        <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <CheckCircle className="text-green-400" size={16} />
-          <span className="text-green-400 text-sm">GitHub Connected: {githubRepo}</span>
-        </div>
-      )}
-
-      {/* ✅ Free Plan: Show simple preview cards */}
+      {/* ✅ Free Plan Preview */}
       {isFreePlan && recommendations.length > 0 && (
         <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-400/20 rounded-xl p-6 text-center">
           <Eye className="w-8 h-8 text-purple-400 mx-auto mb-3" />
           <h3 className="text-white font-semibold mb-2">{recommendations.length} AI Visibility Fixes Detected</h3>
           <p className="text-sm text-[#94a3b8] mb-4">We've identified optimizations that can improve your brand's visibility across ChatGPT, Gemini, Claude, and Perplexity.</p>
-          <button onClick={() => setShowUpgradeModal(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-medium transition-all">
-            View Complete Analysis & Fixes
-          </button>
+          <button onClick={() => setShowUpgradeModal(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-medium transition-all">View Complete Analysis & Fixes</button>
         </div>
       )}
 
-      {/* ✅ Paid Plan: Show full recommendations */}
+      {/* ✅ Paid Plan Recommendations */}
       {!isFreePlan && recommendations.map((rec) => (
         <div key={rec.id} className="bg-[#1e293b] rounded-xl border border-[#334155] p-5">
           <div className="flex items-start justify-between">
@@ -196,9 +216,7 @@ export default function RecommendationsList({
               <h3 className="text-white font-semibold">{rec.title}</h3>
               <p className="text-sm text-[#94a3b8] mt-1">{rec.description}</p>
               <div className="flex items-center gap-3 mt-3">
-                <span className={`px-2 py-0.5 text-xs rounded-full ${rec.priority === 'high' ? 'bg-red-400/10 text-red-400' : rec.priority === 'medium' ? 'bg-amber-400/10 text-amber-400' : 'bg-blue-400/10 text-blue-400'}`}>
-                  {rec.priority}
-                </span>
+                <span className={`px-2 py-0.5 text-xs rounded-full ${rec.priority === 'high' ? 'bg-red-400/10 text-red-400' : rec.priority === 'medium' ? 'bg-amber-400/10 text-amber-400' : 'bg-blue-400/10 text-blue-400'}`}>{rec.priority}</span>
                 <span className="text-xs text-[#94a3b8]">Impact: {rec.impact_score}/10 · Effort: {rec.effort_score}/10</span>
                 {deployedIds.has(rec.id) && <span className="px-2 py-0.5 text-xs rounded-full bg-green-400/10 text-green-400">Deployed</span>}
               </div>
