@@ -12,12 +12,15 @@ export default function SiteDetailTabs({
   site,
   latestMentions,
   userId,
+  userPlan = 'free',
 }: {
   site: any;
   latestMentions: any[];
   userId: string;
+  userPlan?: string;
 }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const isFreePlan = userPlan === 'free';
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -28,7 +31,6 @@ export default function SiteDetailTabs({
 
   return (
     <div>
-      {/* Tab navigation */}
       <div className="flex border-b border-[#334155] mb-6">
         {tabs.map((tab) => (
           <button
@@ -46,14 +48,13 @@ export default function SiteDetailTabs({
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* ✅ FIX: Fallback values for score and previousScore */}
           <VisibilityScoreCard
             score={site.visibility_score || 0}
             previousScore={site.previous_score || 0}
             lastAuditAt={site.last_audit_at}
+            isFreePlan={isFreePlan}
           />
           <CompetitorTable
             competitors={site.competitors || []}
@@ -86,7 +87,7 @@ export default function SiteDetailTabs({
               ))}
             </ul>
           ) : (
-            <p className="text-[#94a3b8] text-sm">No prompts configured. Add one to customize audit questions.</p>
+            <p className="text-[#94a3b8] text-sm">No prompts configured.</p>
           )}
         </div>
       )}
@@ -102,6 +103,7 @@ export default function SiteDetailTabs({
           userId={userId}
           githubConnected={!!site.github_token_encrypted}
           githubRepo={site.github_repo}
+          isFreePlan={isFreePlan}
         />
       )}
     </div>

@@ -23,6 +23,13 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
     );
   }
 
+  // ✅ Fetch profile plan for free plan UI
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan')
+    .eq('id', user.id)
+    .single();
+
   if (site.audits) site.audits.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   if (site.recommendations) site.recommendations.sort((a: any, b: any) => b.impact_score - a.impact_score);
 
@@ -50,10 +57,12 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
         </span>
       </div>
 
+      {/* ✅ Pass userPlan */}
       <SiteDetailTabs
         site={site}
         latestMentions={latestAuditMentions}
         userId={user.id}
+        userPlan={profile?.plan || 'free'}
       />
     </div>
   );

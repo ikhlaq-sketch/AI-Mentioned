@@ -1,67 +1,113 @@
-const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID!;
-const CF_API_TOKEN = process.env.OPENROUTER_API_KEY!;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aimentioned.com';
 
-console.log("DEBUG: Account ID length is:", CF_ACCOUNT_ID.length);
-console.log("DEBUG: Account ID starts with:", CF_ACCOUNT_ID.substring(0, 5));
+console.log("DEBUG:  OPENROUTER_API_KEY length is:", OPENROUTER_API_KEY.length);
 
 
+export const PLAN_CONFIG = {
+  free: {
+    llms: [],
+    max_sites: 1,
+    queries_per_month: 100,
+    queries_per_site: 100,
+    overage_allowed: false,
+    overage_cost: 0,
+  },
+  starter: {
+    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    max_sites: 1,
+    queries_per_month: 100,
+    queries_per_site: 100,
+    overage_allowed: false,
+    overage_cost: 0,
+  },
+  growth: {
+    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    max_sites: 5,
+    queries_per_month: 500,
+    queries_per_site: 100,
+    overage_allowed: true,
+    overage_cost: 0.05,
+  },
+  scale: {
+    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    max_sites: 10,
+    queries_per_month: 1000,
+    queries_per_site: 100,
+    overage_allowed: true,
+    overage_cost: 0.05,
+  },
+  agency_pro: {
+    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    max_sites: 20,
+    queries_per_month: 2000,
+    queries_per_site: 100,
+    overage_allowed: true,
+    overage_cost: 0.05,
+  },
+};
 
 export async function callOpenRouter(
   model: string,
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  // Dynamically map models or fallback to Llama 3.1
-  let modelPath = model;
-  if (!model.startsWith('@cf/')) {
-    modelPath = '@cf/meta/llama-3.1-8b-instruct'; 
-  }
-
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${modelPath}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 1000,
-      }),
-    }
-  );
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': APP_URL,
+      'X-Title': 'AIMentioned',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    }),
+  });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Cloudflare AI HTTP error ${response.status}: ${errorText}`);
+    const error = await response.json().catch(() => ({}));
+    throw new Error(`OpenRouter error ${response.status}: ${error.error?.message || 'Unknown'}`);
   }
 
   const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
 
-  if (!data.success) {
-    throw new Error(`Cloudflare AI error: ${JSON.stringify(data.errors)}`);
-  }
-
-  // ✅ THE FIX: Bulletproof text extraction
-  // Cloudflare changes its response shape depending on the model. This guarantees a string.
-  let resultText = '';
-  
-  if (typeof data.result === 'string') {
-    resultText = data.result;
-  } else if (data.result && typeof data.result.response === 'string') {
-    resultText = data.result.response;
-  } else {
-    // If it's an array or weird object, forcefully stringify it so .match() never crashes
-    resultText = JSON.stringify(data.result || ''); 
-  }
-
-  return resultText;
+export async function callMultipleLLMs(
+  models: string[],
+  systemPrompt: string,
+  userPrompt: string
+): Promise<Record<string, string>> {
+  const results: Record<string, string> = {};
+  await Promise.all(
+    models.map(async (model) => {
+      try {
+        results[model] = await callOpenRouter(model, systemPrompt, userPrompt);
+      } catch (error) {
+        console.error(`Failed: ${model}`, error);
+        results[model] = '';
+      }
+    })
+  );
+  return results;
 }
 
 export function checkMention(response: string, entityName: string): boolean {
   return response.toLowerCase().includes(entityName.toLowerCase());
+}
+
+export function getDisplayName(model: string): string {
+  const lower = model.toLowerCase();
+  if (lower.includes('openai') || lower.includes('gpt')) return 'ChatGPT';
+  if (lower.includes('claude') || lower.includes('anthropic')) return 'Claude';
+  if (lower.includes('gemini')) return 'Gemini';
+  if (lower.includes('perplexity') || lower.includes('sonar') || lower.includes('llama')) return 'Perplexity';
+  return model;
 }
