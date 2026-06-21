@@ -8,7 +8,6 @@ type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 const SYSTEM_PROMPT =
   "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
 
-// ✅ IMPROVED: More variety in fake data for free plan
 function generateFakeMentions(
   auditId: string, websiteId: string, userId: string,
   brandName: string, competitors: string[], primaryPrompt: string
@@ -21,28 +20,18 @@ function generateFakeMentions(
 
   const mentions: any[] = [];
   
-  // ✅ Target: brand mentioned in 2-3 out of 4 LLMs = score between 40-70
-  // We'll make 2 or 3 LLMs mention the brand, and 1-2 LLMs mention competitors
-  const brandMentionCount = Math.random() < 0.5 ? 2 : 3; // 2 or 3 LLMs
+  const brandMentionCount = Math.random() < 0.5 ? 2 : 3;
   const brandMentionLLMs = new Set<string>();
   
-  // Randomly pick which LLMs mention the brand
   while (brandMentionLLMs.size < brandMentionCount) {
     brandMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
   }
   
-  const brandResponses = [
+  const responses = [
     `${brandName} is a solid choice in this category, offering competitive features.`,
     `While ${competitors[0] || 'others'} leads, ${brandName} has been gaining traction.`,
     `${brandName} stands out for its customer-focused solutions.`,
     `In this space, ${brandName} is emerging as a noteworthy option.`,
-  ];
-
-  const competitorResponses = [
-    `${competitors[0] || 'The competitor'} is well-established with strong brand recognition.`,
-    `Many users recommend ${competitors.join(' and ')} as top choices.`,
-    `${competitors[0] || 'Competitors'} have significant market presence.`,
-    `The top recommendations include ${competitors.join(', ')}.`,
   ];
 
   for (const entity of entities) {
@@ -52,22 +41,17 @@ function generateFakeMentions(
       let wasMentioned: boolean;
       
       if (isBrand) {
-        // Brand: mentioned by the pre-selected LLMs
         wasMentioned = brandMentionLLMs.has(llmName);
       } else {
-        // Competitors: mentioned by 1-2 LLMs that didn't mention the brand
         wasMentioned = !brandMentionLLMs.has(llmName) && Math.random() < 0.6;
       }
       
-      const response = isBrand 
-        ? brandResponses[Math.floor(Math.random() * brandResponses.length)]
-        : competitorResponses[Math.floor(Math.random() * competitorResponses.length)];
-
       mentions.push({
         audit_id: auditId, website_id: websiteId, user_id: userId,
         llm_name: llmName, prompt_text: primaryPrompt,
         entity_name: entity.name, entity_type: entity.type,
-        was_mentioned: wasMentioned, full_response: response,
+        was_mentioned: wasMentioned,
+        full_response: responses[Math.floor(Math.random() * responses.length)],
       });
     }
   }
@@ -95,8 +79,7 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     const totalAfterAudit = profile.queries_used + queriesThisAudit;
     if (totalAfterAudit > profile.queries_limit) {
       if (planConfig.overage_allowed) {
-        const overageQueries = totalAfterAudit - profile.queries_limit;
-        console.log(`[v0] Overage: ${overageQueries} queries at $${planConfig.overage_cost}/query`);
+        console.log(`[v0] Overage: ${totalAfterAudit - profile.queries_limit} queries`);
       } else {
         const error = new Error('Query limit exceeded') as any;
         error.resetDate = profile.queries_reset_at;
@@ -166,7 +149,11 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     await service.rpc('increment_queries', { uid: userId, count: queriesThisAudit });
   }
 
-  const score = calculateVisibilityScore(mentions);
+  // ✅ Free plan: random score 40-70 | Paid: calculated from real data
+  const score = isFreePlan
+    ? Math.floor(Math.random() * 31) + 40
+    : calculateVisibilityScore(mentions);
+
   await service.from('audits').update({
     status: 'completed', queries_consumed: queriesThisAudit, visibility_score: score,
   }).eq('id', audit.id);
