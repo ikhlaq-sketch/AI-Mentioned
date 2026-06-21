@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, GitPullRequest, CheckCircle, Lock, ArrowUpCircle } from 'lucide-react';
+import { Copy, GitPullRequest, CheckCircle, Lock, ArrowUpCircle, X, Shield, Zap, Eye } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function RecommendationsList({
@@ -25,6 +25,7 @@ export default function RecommendationsList({
   const [deployedIds, setDeployedIds] = useState<Set<string>>(new Set());
   const [repoName, setRepoName] = useState(githubRepo || '');
   const [connectingGitHub, setConnectingGitHub] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const copyFixCode = (code: string, id: string) => {
     if (isFreePlan) return;
@@ -43,11 +44,8 @@ export default function RecommendationsList({
         body: JSON.stringify({ recommendation_id: rec.id, website_id: websiteId }),
       });
       const data = await res.json();
-      if (data.pr_url) {
-        window.open(data.pr_url, '_blank');
-      } else {
-        alert(data.error || 'Failed to create PR');
-      }
+      if (data.pr_url) window.open(data.pr_url, '_blank');
+      else alert(data.error || 'Failed to create PR');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -81,11 +79,8 @@ export default function RecommendationsList({
         body: JSON.stringify({ website_id: websiteId, repo: repoName }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Failed to connect GitHub');
-      }
+      if (data.url) window.location.href = data.url;
+      else alert(data.error || 'Failed to connect GitHub');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -95,6 +90,56 @@ export default function RecommendationsList({
 
   return (
     <div className="space-y-4">
+      {/* ✅ Upgrade Modal for Free Users */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-8 max-w-md mx-4 text-center relative">
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute top-3 right-3 text-[#94a3b8] hover:text-white"
+            >
+              <X size={18} />
+            </button>
+            
+            <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-purple-400" />
+            </div>
+            
+            <h2 className="text-xl font-bold text-white mb-2">Unlock Complete AI Visibility</h2>
+            <p className="text-sm text-[#94a3b8] mb-6">
+              We've detected key optimizations that will help your brand rank higher in ChatGPT, Gemini, Claude, and Perplexity.
+            </p>
+
+            <div className="bg-[#0f172a] rounded-xl p-4 mb-6 text-left space-y-2">
+              <div className="flex items-center gap-2 text-sm text-white">
+                <Zap className="w-4 h-4 text-purple-400" />
+                24/7 AI visibility monitoring
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white">
+                <Zap className="w-4 h-4 text-purple-400" />
+                Ready-to-paste schema fixes
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white">
+                <Zap className="w-4 h-4 text-purple-400" />
+                Competitor gap analysis
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white">
+                <Zap className="w-4 h-4 text-purple-400" />
+                Weekly AI audit reports
+              </div>
+            </div>
+
+            <a
+              href="/?pricing=true#pricing"
+              className="block w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold transition-all"
+            >
+              Upgrade Now - Starting at $49/mo
+            </a>
+            <p className="text-xs text-[#64748b] mt-2">No credit card required for free trial</p>
+          </div>
+        </div>
+      )}
+
       {/* GitHub Repo Input */}
       {!githubConnected && !isFreePlan && (
         <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-4 mb-4">
@@ -127,7 +172,27 @@ export default function RecommendationsList({
         </div>
       )}
 
-      {recommendations.map((rec) => (
+      {/* ✅ Free Plan: Show simple preview cards */}
+      {isFreePlan && recommendations.length > 0 && (
+        <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-400/20 rounded-xl p-6 text-center">
+          <Eye className="w-8 h-8 text-purple-400 mx-auto mb-3" />
+          <h3 className="text-white font-semibold mb-2">
+            {recommendations.length} AI Visibility Fixes Detected
+          </h3>
+          <p className="text-sm text-[#94a3b8] mb-4">
+            We've identified optimizations that can improve your brand's visibility across ChatGPT, Gemini, Claude, and Perplexity.
+          </p>
+          <button
+            onClick={() => setShowUpgradeModal(true)}
+            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-medium transition-all"
+          >
+            View Complete Analysis & Fixes
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Paid Plan: Show full recommendations */}
+      {!isFreePlan && recommendations.map((rec) => (
         <div key={rec.id} className="bg-[#1e293b] rounded-xl border border-[#334155] p-5">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -145,36 +210,25 @@ export default function RecommendationsList({
                   Impact: {rec.impact_score}/10 · Effort: {rec.effort_score}/10
                 </span>
                 {deployedIds.has(rec.id) && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-green-400/10 text-green-400">
-                    Deployed
-                  </span>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-green-400/10 text-green-400">Deployed</span>
                 )}
               </div>
 
               {rec.fix_code && (
-                <div className="mt-3 relative">
-                  <pre className={`bg-[#0f172a] p-3 rounded text-xs text-[#94a3b8] overflow-x-auto max-h-32 ${
-                    isFreePlan ? 'blur-sm select-none' : ''
-                  }`}>
-                    {rec.fix_code.substring(0, 300)}...
+                <details className="mt-3">
+                  <summary className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">
+                    View Code (Copy-Paste Ready)
+                  </summary>
+                  <pre className="bg-[#0f172a] p-3 rounded text-xs text-[#94a3b8] overflow-x-auto max-h-32 mt-2">
+                    {rec.fix_code.substring(0, 500)}...
                   </pre>
-                  {isFreePlan && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <Lock className="w-6 h-6 text-purple-400 mx-auto mb-1" />
-                        <a href="/?pricing=true#pricing" className="text-xs text-purple-400 hover:text-purple-300">
-                          Upgrade to unlock
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </details>
               )}
 
               {rec.fix_instructions && (
                 <details className="mt-2">
                   <summary className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">
-                    View Implementation Steps
+                    How to Implement
                   </summary>
                   <p className="text-xs text-[#94a3b8] mt-1 whitespace-pre-line">{rec.fix_instructions}</p>
                 </details>
@@ -182,32 +236,23 @@ export default function RecommendationsList({
             </div>
 
             <div className="flex flex-col items-end ml-4 space-y-2">
-              {rec.fix_code && !isFreePlan && (
+              {rec.fix_code && (
                 <button onClick={() => copyFixCode(rec.fix_code, rec.id)} className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300">
                   <Copy size={14} />
                   {copiedId === rec.id ? 'Copied' : 'Copy Fix'}
                 </button>
               )}
-
-              {githubConnected && !isFreePlan && !deployedIds.has(rec.id) && (
+              {githubConnected && !deployedIds.has(rec.id) && (
                 <button onClick={() => createPR(rec)} disabled={creatingPR === rec.id} className="flex items-center gap-1 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-500 disabled:opacity-50">
                   {creatingPR === rec.id ? <LoadingSpinner size={14} /> : <GitPullRequest size={14} />}
                   Create PR
                 </button>
               )}
-
-              {!isFreePlan && !deployedIds.has(rec.id) && (
+              {!deployedIds.has(rec.id) && (
                 <button onClick={() => markDeployed(rec.id)} disabled={markingDeployed === rec.id} className="flex items-center gap-1 text-sm text-green-400 hover:text-green-300">
                   {markingDeployed === rec.id ? <LoadingSpinner size={14} /> : <CheckCircle size={14} />}
                   Mark Deployed
                 </button>
-              )}
-
-              {isFreePlan && (
-                <a href="/?pricing=true#pricing" className="flex items-center gap-1 text-sm bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-500">
-                  <ArrowUpCircle size={14} />
-                  Upgrade
-                </a>
               )}
             </div>
           </div>
@@ -215,7 +260,7 @@ export default function RecommendationsList({
       ))}
 
       {recommendations.length === 0 && (
-        <p className="text-[#94a3b8] text-sm">No recommendations yet.</p>
+        <p className="text-[#94a3b8] text-sm">No recommendations yet. Run an audit to get AI-powered fixes.</p>
       )}
     </div>
   );
