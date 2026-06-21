@@ -103,7 +103,6 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
   const planConfig = PLAN_CONFIG[profile.plan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
   const isFreePlan = profile.plan === 'free';
   
-  // ✅ FIXED: Daily=2 queries, Weekly/Baseline/Manual = LLMs × 3 entities
   const queriesThisAudit = type === 'daily' 
     ? 2 
     : (isFreePlan ? 0 : planConfig.llms.length * 3);
@@ -170,9 +169,8 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     const userPrompt = `Question: "${primaryPrompt}"\n\nPlease answer this question comprehensively. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}.\nProvide specific recommendations with brand names when applicable.`;
 
     if (type === 'daily') {
-      // ✅ FIXED: Use google/gemini-2.0-flash-lite
-      const response = await callMultipleLLMs(['google/gemini-2.0-flash-lite'], SYSTEM_PROMPT, userPrompt);
-      const llmResponse = response['google/gemini-2.0-flash-lite'] || '';
+      const response = await callMultipleLLMs(['google/gemini-2.5-flash-lite'], SYSTEM_PROMPT, userPrompt);
+      const llmResponse = response['google/gemini-2.5-flash-lite'] || '';
       mentions = entities.slice(0, 2).map((entity) => ({
         audit_id: audit.id, website_id: websiteId, user_id: userId,
         llm_name: 'Gemini', prompt_text: primaryPrompt,

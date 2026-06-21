@@ -1,7 +1,7 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aimentioned.com';
 
-// ✅ FIXED: Correct model names
+// ✅ FINAL: Working low-cost models
 export const PLAN_CONFIG = {
   free: {
     llms: [],
@@ -12,7 +12,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0,
   },
   starter: {
-    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    llms: ['google/gemini-2.5-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
     max_sites: 1,
     queries_per_month: 100,
     queries_per_site: 100,
@@ -20,7 +20,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0,
   },
   growth: {
-    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    llms: ['google/gemini-2.5-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
     max_sites: 5,
     queries_per_month: 500,
     queries_per_site: 100,
@@ -28,7 +28,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0.05,
   },
   scale: {
-    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    llms: ['google/gemini-2.5-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar'],
     max_sites: 10,
     queries_per_month: 1000,
     queries_per_site: 100,
@@ -36,7 +36,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0.05,
   },
   agency_pro: {
-    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    llms: ['google/gemini-2.5-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar'],
     max_sites: 20,
     queries_per_month: 2000,
     queries_per_site: 100,
