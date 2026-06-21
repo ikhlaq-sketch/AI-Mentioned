@@ -101,9 +101,19 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
+  // ✅ FREE PLAN: Never skip (no API cost)
+  // ✅ PAID PLANS: Skip every 21st day of site's lifecycle for crawl buffer
   const today = new Date().getDate();
-  const isSkipDay = today === 21;
-  console.log(`[v0] Today=${today}, isSkipDay=${isSkipDay}`);
+  let isSkipDay = false;
+  let daysSinceCreation = 0;
+  
+  if (!isFreePlan && website.created_at) {
+    const siteCreatedAt = new Date(website.created_at);
+    daysSinceCreation = Math.floor((Date.now() - siteCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+    isSkipDay = daysSinceCreation > 0 && daysSinceCreation % 21 === 0;
+  }
+
+  console.log(`[v0] Today=${today}, daysSinceCreation=${daysSinceCreation}, isSkipDay=${isSkipDay}, isFreePlan=${isFreePlan}`);
 
   const { data: audit, error: auditErr } = await service
     .from('audits').insert({
@@ -118,7 +128,7 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
   console.log(`[v0] Audit created: ${audit.id}`);
 
   if (isSkipDay) {
-    console.log(`[v0] Skip day - returning early`);
+    console.log(`[v0] Skip day (site day ${daysSinceCreation}) - returning early`);
     return { audit_id: audit.id, score: website.visibility_score, queries_consumed: 0 };
   }
 
