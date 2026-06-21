@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import RecommendationsList from '@/components/RecommendationsList';
-
+import { CheckCircle } from 'lucide-react';
 export default async function RecommendationsPage() {
   const supabase = createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
