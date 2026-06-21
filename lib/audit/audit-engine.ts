@@ -8,6 +8,7 @@ type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 const SYSTEM_PROMPT =
   "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
 
+// ✅ IMPROVED: More variety in fake data for free plan
 function generateFakeMentions(
   auditId: string, websiteId: string, userId: string,
   brandName: string, competitors: string[], primaryPrompt: string
@@ -19,19 +20,49 @@ function generateFakeMentions(
   ];
 
   const mentions: any[] = [];
-  const fakeResponses = [
-    `Based on my analysis, ${brandName} is a notable player in this space, though competitors like ${competitors.join(' and ')} have stronger visibility.`,
-    `When considering options, ${competitors[0] || 'competitors'} often comes up first, but ${brandName} has unique features worth exploring.`,
-    `${brandName} provides solid solutions, ranking alongside ${competitors.join(' and ')} in this category.`,
-    `The top recommendations include ${competitors.join(', ')}, with ${brandName} being a viable alternative.`,
+  
+  // ✅ Target: brand mentioned in 2-3 out of 4 LLMs = score between 40-70
+  // We'll make 2 or 3 LLMs mention the brand, and 1-2 LLMs mention competitors
+  const brandMentionCount = Math.random() < 0.5 ? 2 : 3; // 2 or 3 LLMs
+  const brandMentionLLMs = new Set<string>();
+  
+  // Randomly pick which LLMs mention the brand
+  while (brandMentionLLMs.size < brandMentionCount) {
+    brandMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
+  }
+  
+  const brandResponses = [
+    `${brandName} is a solid choice in this category, offering competitive features.`,
+    `While ${competitors[0] || 'others'} leads, ${brandName} has been gaining traction.`,
+    `${brandName} stands out for its customer-focused solutions.`,
+    `In this space, ${brandName} is emerging as a noteworthy option.`,
+  ];
+
+  const competitorResponses = [
+    `${competitors[0] || 'The competitor'} is well-established with strong brand recognition.`,
+    `Many users recommend ${competitors.join(' and ')} as top choices.`,
+    `${competitors[0] || 'Competitors'} have significant market presence.`,
+    `The top recommendations include ${competitors.join(', ')}.`,
   ];
 
   for (const entity of entities) {
+    const isBrand = entity.type === 'brand';
+    
     for (const llmName of llmNames) {
-      const isBrand = entity.type === 'brand';
-      const mentionChance = isBrand ? 0.3 : 0.6;
-      const wasMentioned = Math.random() < mentionChance;
-      const response = fakeResponses[Math.floor(Math.random() * fakeResponses.length)];
+      let wasMentioned: boolean;
+      
+      if (isBrand) {
+        // Brand: mentioned by the pre-selected LLMs
+        wasMentioned = brandMentionLLMs.has(llmName);
+      } else {
+        // Competitors: mentioned by 1-2 LLMs that didn't mention the brand
+        wasMentioned = !brandMentionLLMs.has(llmName) && Math.random() < 0.6;
+      }
+      
+      const response = isBrand 
+        ? brandResponses[Math.floor(Math.random() * brandResponses.length)]
+        : competitorResponses[Math.floor(Math.random() * competitorResponses.length)];
+
       mentions.push({
         audit_id: auditId, website_id: websiteId, user_id: userId,
         llm_name: llmName, prompt_text: primaryPrompt,
@@ -40,6 +71,7 @@ function generateFakeMentions(
       });
     }
   }
+  
   return mentions;
 }
 
