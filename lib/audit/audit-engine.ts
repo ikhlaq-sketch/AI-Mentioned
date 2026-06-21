@@ -56,24 +56,37 @@ function generateFakeMentions(
     }
   }
   
+  console.log(`[v0] Generated ${mentions.length} fake mentions. Brand mentioned in ${brandMentionCount}/4 LLMs`);
   return mentions;
 }
 
 export async function runAudit(websiteId: string, userId: string, type: AuditType) {
   const service = createServiceClient();
 
+  console.log(`[v0] runAudit START: website=${websiteId}, user=${userId}, type=${type}`);
+
   const { data: website, error: siteErr } = await service
     .from('websites').select('*, prompts(*), competitors(*)')
     .eq('id', websiteId).single();
-  if (siteErr || !website) throw new Error('Website not found');
+  if (siteErr || !website) {
+    console.error(`[v0] Website fetch error:`, siteErr?.message);
+    throw new Error('Website not found');
+  }
+  console.log(`[v0] Website found: ${website.domain}`);
 
   const { data: profile } = await service
     .from('profiles').select('*').eq('id', userId).single();
-  if (!profile) throw new Error('Profile not found');
+  if (!profile) {
+    console.error(`[v0] Profile not found for user: ${userId}`);
+    throw new Error('Profile not found');
+  }
+  console.log(`[v0] Profile: plan=${profile.plan}, queries_used=${profile.queries_used}/${profile.queries_limit}`);
 
   const planConfig = PLAN_CONFIG[profile.plan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
   const isFreePlan = profile.plan === 'free';
   const queriesThisAudit = type === 'daily' ? 2 : (isFreePlan ? 0 : planConfig.llms.length);
+
+  console.log(`[v0] isFreePlan=${isFreePlan}, queriesThisAudit=${queriesThisAudit}`);
 
   if (!isFreePlan) {
     const totalAfterAudit = profile.queries_used + queriesThisAudit;
@@ -90,6 +103,7 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
 
   const today = new Date().getDate();
   const isSkipDay = today === 21;
+  console.log(`[v0] Today=${today}, isSkipDay=${isSkipDay}`);
 
   const { data: audit, error: auditErr } = await service
     .from('audits').insert({
@@ -97,9 +111,14 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
       status: isSkipDay ? 'completed' : 'running',
       queries_consumed: isSkipDay ? 0 : queriesThisAudit,
     }).select().single();
-  if (auditErr) throw new Error('Failed to create audit');
+  if (auditErr) {
+    console.error(`[v0] Audit insert error:`, auditErr.message);
+    throw new Error('Failed to create audit');
+  }
+  console.log(`[v0] Audit created: ${audit.id}`);
 
   if (isSkipDay) {
+    console.log(`[v0] Skip day - returning early`);
     return { audit_id: audit.id, score: website.visibility_score, queries_consumed: 0 };
   }
 
@@ -110,8 +129,10 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
   let mentions: any[];
 
   if (isFreePlan) {
+    console.log(`[v0] Generating fake mentions for free plan`);
     mentions = generateFakeMentions(audit.id, websiteId, userId, brandName, competitors, primaryPrompt);
   } else {
+    console.log(`[v0] Calling ${planConfig.llms.length} LLMs for paid plan`);
     const entities = [
       { name: brandName, type: 'brand' },
       ...competitors.map((name: string) => ({ name, type: 'competitor' })),
@@ -144,32 +165,54 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
-  await service.from('mentions').insert(mentions);
+  console.log(`[v0] Inserting ${mentions.length} mentions`);
+  const { error: mentionError } = await service.from('mentions').insert(mentions);
+  if (mentionError) {
+    console.error(`[v0] Mention insert error:`, mentionError.message, mentionError.details);
+  } else {
+    console.log(`[v0] Mentions inserted successfully`);
+  }
+
   if (!isFreePlan && !isSkipDay) {
-    await service.rpc('increment_queries', { uid: userId, count: queriesThisAudit });
+    console.log(`[v0] Incrementing queries by ${queriesThisAudit}`);
+    const { error: rpcErr } = await service.rpc('increment_queries', { uid: userId, count: queriesThisAudit });
+    if (rpcErr) console.error(`[v0] RPC error:`, rpcErr.message);
   }
 
   // ✅ Free plan: random score 40-70 | Paid: calculated from real data
-  const score = isFreePlan
-    ? Math.floor(Math.random() * 31) + 40
-    : calculateVisibilityScore(mentions);
+  let score: number;
+  if (isFreePlan) {
+    score = Math.floor(Math.random() * 31) + 40;
+    console.log(`[v0] FREE PLAN - Random score generated: ${score}`);
+  } else {
+    score = calculateVisibilityScore(mentions);
+    console.log(`[v0] PAID PLAN - Calculated score: ${score}`);
+  }
 
-  await service.from('audits').update({
+  console.log(`[v0] Updating audit ${audit.id} with score=${score}`);
+  const { error: auditUpdateErr } = await service.from('audits').update({
     status: 'completed', queries_consumed: queriesThisAudit, visibility_score: score,
   }).eq('id', audit.id);
+  if (auditUpdateErr) console.error(`[v0] Audit update error:`, auditUpdateErr.message);
+  else console.log(`[v0] Audit updated successfully`);
 
   const prevScore = website.visibility_score || 0;
-  await service.from('websites').update({
+  console.log(`[v0] Updating website ${websiteId} score from ${prevScore} to ${score}`);
+  const { error: websiteUpdateErr } = await service.from('websites').update({
     visibility_score: score, previous_score: prevScore,
     last_audit_at: new Date().toISOString(),
     next_audit_at: type === 'weekly' || type === 'baseline'
       ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       : website.next_audit_at,
   }).eq('id', websiteId);
+  if (websiteUpdateErr) console.error(`[v0] Website update error:`, websiteUpdateErr.message);
+  else console.log(`[v0] Website updated successfully`);
 
   if (type === 'weekly' || type === 'baseline') {
+    console.log(`[v0] Generating recommendations`);
     await generateRecommendations(websiteId, userId);
   }
 
+  console.log(`[v0] runAudit COMPLETE - Returning score: ${score}`);
   return { audit_id: audit.id, score, queries_consumed: queriesThisAudit };
 }
