@@ -82,8 +82,9 @@ export async function crawlWebsite(website: any) {
   if (needsAIFallback) {
     try {
       const prompt = `Analyze "${domain}" and extract: company name, description, products/services. Return JSON: {"companyName":"...", "description":"...", "productsServices":[...]}`;
+      // ✅ FIXED: Use google/gemini-2.0-flash-lite
       const aiResponse = await callOpenRouter(
-        'google/gemini-2.0-flash-001',
+        'google/gemini-2.0-flash-lite',
         'You are a business analyst.',
         prompt
       );

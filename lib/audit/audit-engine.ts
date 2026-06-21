@@ -20,7 +20,6 @@ function generateFakeMentions(
 
   const mentions: any[] = [];
   
-  // ✅ Brand mentioned in only 1-2 of 4 LLMs (weaker)
   const brandMentionCount = Math.random() < 0.5 ? 1 : 2;
   const brandMentionLLMs = new Set<string>();
   
@@ -28,7 +27,6 @@ function generateFakeMentions(
     brandMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
   }
   
-  // ✅ Each competitor mentioned in 3-4 of 4 LLMs (stronger)
   const competitorMentionCount = Math.random() < 0.5 ? 3 : 4;
   const competitorMentionLLMs = new Set<string>();
   
@@ -57,10 +55,8 @@ function generateFakeMentions(
       let wasMentioned: boolean;
       
       if (isBrand) {
-        // Brand: weaker (1-2 LLMs)
         wasMentioned = brandMentionLLMs.has(llmName);
       } else {
-        // Competitors: stronger (3-4 LLMs)
         wasMentioned = competitorMentionLLMs.has(llmName);
       }
       
@@ -106,7 +102,11 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
 
   const planConfig = PLAN_CONFIG[profile.plan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
   const isFreePlan = profile.plan === 'free';
-  const queriesThisAudit = type === 'daily' ? 2 : (isFreePlan ? 0 : planConfig.llms.length);
+  
+  // ✅ FIXED: Daily=2 queries, Weekly/Baseline/Manual = LLMs × 3 entities
+  const queriesThisAudit = type === 'daily' 
+    ? 2 
+    : (isFreePlan ? 0 : planConfig.llms.length * 3);
 
   console.log(`[v0] isFreePlan=${isFreePlan}, queriesThisAudit=${queriesThisAudit}`);
 
@@ -123,8 +123,6 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
-  // ✅ FREE PLAN: Never skip (no API cost)
-  // ✅ PAID PLANS: Skip every 21st day of site's lifecycle for crawl buffer
   const today = new Date().getDate();
   let isSkipDay = false;
   let daysSinceCreation = 0;
@@ -172,8 +170,9 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     const userPrompt = `Question: "${primaryPrompt}"\n\nPlease answer this question comprehensively. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}.\nProvide specific recommendations with brand names when applicable.`;
 
     if (type === 'daily') {
-      const response = await callMultipleLLMs(['google/gemini-2.0-flash-001'], SYSTEM_PROMPT, userPrompt);
-      const llmResponse = response['google/gemini-2.0-flash-001'] || '';
+      // ✅ FIXED: Use google/gemini-2.0-flash-lite
+      const response = await callMultipleLLMs(['google/gemini-2.0-flash-lite'], SYSTEM_PROMPT, userPrompt);
+      const llmResponse = response['google/gemini-2.0-flash-lite'] || '';
       mentions = entities.slice(0, 2).map((entity) => ({
         audit_id: audit.id, website_id: websiteId, user_id: userId,
         llm_name: 'Gemini', prompt_text: primaryPrompt,
@@ -211,7 +210,6 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     if (rpcErr) console.error(`[v0] RPC error:`, rpcErr.message);
   }
 
-  // ✅ Free plan: random score 40-70 | Paid: calculated from real data
   let score: number;
   if (isFreePlan) {
     score = Math.floor(Math.random() * 31) + 40;

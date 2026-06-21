@@ -1,9 +1,7 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aimentioned.com';
 
-console.log("DEBUG:  OPENROUTER_API_KEY length is:", OPENROUTER_API_KEY.length);
-
-
+// ✅ FIXED: Correct model names
 export const PLAN_CONFIG = {
   free: {
     llms: [],
@@ -14,7 +12,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0,
   },
   starter: {
-    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
     max_sites: 1,
     queries_per_month: 100,
     queries_per_site: 100,
@@ -22,7 +20,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0,
   },
   growth: {
-    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
     max_sites: 5,
     queries_per_month: 500,
     queries_per_site: 100,
@@ -30,7 +28,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0.05,
   },
   scale: {
-    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
     max_sites: 10,
     queries_per_month: 1000,
     queries_per_site: 100,
@@ -38,7 +36,7 @@ export const PLAN_CONFIG = {
     overage_cost: 0.05,
   },
   agency_pro: {
-    llms: ['google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
+    llms: ['google/gemini-2.0-flash-lite', 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'perplexity/sonar-small-online'],
     max_sites: 20,
     queries_per_month: 2000,
     queries_per_site: 100,
