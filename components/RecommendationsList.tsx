@@ -69,24 +69,25 @@ export default function RecommendationsList({
     }
   };
 
-  const handleConnectGitHub = async () => {
-    if (!repoName) { alert('Please enter a repository name (e.g., owner/repo)'); return; }
-    setConnectingGitHub(true);
-    try {
-      const res = await fetch('/api/github/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_id: websiteId, repo: repoName }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else alert(data.error || 'Failed to connect GitHub');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setConnectingGitHub(false);
-    }
-  };
+ const handleConnectGitHub = async () => {
+  if (!repoName) { alert('Please enter a repository name (e.g., owner/repo)'); return; }
+  setConnectingGitHub(true);
+  try {
+    // Save repo name first
+    await fetch('/api/github/save-repo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ website_id: websiteId, repo: repoName }),
+    });
+    
+    // Then redirect to GitHub OAuth
+    window.location.href = `/api/github/connect?website_id=${websiteId}`;
+  } catch (err: any) {
+    alert(err.message);
+  } finally {
+    setConnectingGitHub(false);
+  }
+};
 
   return (
     <div className="space-y-4">
