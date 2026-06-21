@@ -20,18 +20,34 @@ function generateFakeMentions(
 
   const mentions: any[] = [];
   
-  const brandMentionCount = Math.random() < 0.5 ? 2 : 3;
+  // ✅ Brand mentioned in only 1-2 of 4 LLMs (weaker)
+  const brandMentionCount = Math.random() < 0.5 ? 1 : 2;
   const brandMentionLLMs = new Set<string>();
   
   while (brandMentionLLMs.size < brandMentionCount) {
     brandMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
   }
   
-  const responses = [
-    `${brandName} is a solid choice in this category, offering competitive features.`,
-    `While ${competitors[0] || 'others'} leads, ${brandName} has been gaining traction.`,
-    `${brandName} stands out for its customer-focused solutions.`,
-    `In this space, ${brandName} is emerging as a noteworthy option.`,
+  // ✅ Each competitor mentioned in 3-4 of 4 LLMs (stronger)
+  const competitorMentionCount = Math.random() < 0.5 ? 3 : 4;
+  const competitorMentionLLMs = new Set<string>();
+  
+  while (competitorMentionLLMs.size < competitorMentionCount) {
+    competitorMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
+  }
+  
+  const brandResponses = [
+    `${brandName} is an emerging option worth considering.`,
+    `${brandName} has potential but faces strong competition.`,
+    `${brandName} offers some unique features but trails market leaders.`,
+    `${brandName} is working to establish itself in this space.`,
+  ];
+
+  const competitorResponses = [
+    `${competitors[0] || 'The market leader'} dominates this category with comprehensive solutions.`,
+    `${competitors.join(' and ')} are the top recommendations in this space.`,
+    `Most users will find the best options with ${competitors.join(' or ')}.`,
+    `${competitors[0] || 'The leading brand'} consistently ranks highest in this category.`,
   ];
 
   for (const entity of entities) {
@@ -41,22 +57,28 @@ function generateFakeMentions(
       let wasMentioned: boolean;
       
       if (isBrand) {
+        // Brand: weaker (1-2 LLMs)
         wasMentioned = brandMentionLLMs.has(llmName);
       } else {
-        wasMentioned = !brandMentionLLMs.has(llmName) && Math.random() < 0.6;
+        // Competitors: stronger (3-4 LLMs)
+        wasMentioned = competitorMentionLLMs.has(llmName);
       }
       
+      const response = isBrand 
+        ? brandResponses[Math.floor(Math.random() * brandResponses.length)]
+        : competitorResponses[Math.floor(Math.random() * competitorResponses.length)];
+
       mentions.push({
         audit_id: auditId, website_id: websiteId, user_id: userId,
         llm_name: llmName, prompt_text: primaryPrompt,
         entity_name: entity.name, entity_type: entity.type,
         was_mentioned: wasMentioned,
-        full_response: responses[Math.floor(Math.random() * responses.length)],
+        full_response: response,
       });
     }
   }
   
-  console.log(`[v0] Generated ${mentions.length} fake mentions. Brand mentioned in ${brandMentionCount}/4 LLMs`);
+  console.log(`[v0] Fake mentions: Brand in ${brandMentionCount}/4, Competitors in ${competitorMentionCount}/4 LLMs`);
   return mentions;
 }
 

@@ -1,3 +1,5 @@
+export const revalidate = 0;
+
 import { createServerSupabase } from '@/lib/supabase/server';
 import Link from 'next/link';
 import SiteDetailTabs from '@/components/SiteDetailTabs';
