@@ -1,247 +1,155 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, GitPullRequest, CheckCircle, Lock, ArrowUpCircle, X, Shield, Zap, Eye, ExternalLink, Edit3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, GitPullRequest, CheckCircle, ArrowUpCircle, X, Shield, Zap, Eye, ExternalLink, Unlink } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function RecommendationsList({
-  recommendations,
-  websiteId,
-  userId,
-  githubConnected,
-  githubRepo,
-  isFreePlan = false,
-  hideGitHub = false,
+  recommendations, websiteId, userId, githubConnected, githubRepo, isFreePlan = false, hideGitHub = false,
 }: {
-  recommendations: any[];
-  websiteId: string;
-  userId: string;
-  githubConnected: boolean;
-  githubRepo?: string;
-  isFreePlan?: boolean;
-  hideGitHub?: boolean;
+  recommendations: any[]; websiteId: string; userId: string; githubConnected: boolean; githubRepo?: string; isFreePlan?: boolean; hideGitHub?: boolean;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [creatingPR, setCreatingPR] = useState<string | null>(null);
-  const [markingDeployed, setMarkingDeployed] = useState<string | null>(null);
+  const [pushingAll, setPushingAll] = useState(false);
   const [deployedIds, setDeployedIds] = useState<Set<string>>(new Set());
-  const [repoName, setRepoName] = useState(githubRepo || '');
-  const [connectingGitHub, setConnectingGitHub] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showGitHubInput, setShowGitHubInput] = useState(false);
-  const [editingRepo, setEditingRepo] = useState(false);
+  const [repos, setRepos] = useState<any[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState(githubRepo || '');
+  const [showRepoSelect, setShowRepoSelect] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
-  const copyFixCode = (code: string, id: string) => {
-    if (isFreePlan) return;
-    navigator.clipboard.writeText(code);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  useEffect(() => {
+    if (githubConnected && websiteId) {
+      fetch(`/api/github/repos?website_id=${websiteId}`).then(r => r.json()).then(setRepos).catch(() => {});
+    }
+  }, [githubConnected, websiteId]);
+
+  const handleConnect = async () => {
+    const res = await fetch(`/api/github/connect?website_id=${websiteId}`);
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
   };
 
-  const createPR = async (rec: any) => {
-    if (isFreePlan || !githubConnected) return;
-    setCreatingPR(rec.id);
+  const handleSelectRepo = async () => {
+    if (!selectedRepo) return;
+    await fetch('/api/github/save-repo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ website_id: websiteId, repo: selectedRepo }),
+    });
+    setShowRepoSelect(false);
+    location.reload();
+  };
+
+  const handlePushAll = async () => {
+    setPushingAll(true);
     try {
-      const res = await fetch('/api/github/create-pr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recommendation_id: rec.id, website_id: websiteId }),
+      const res = await fetch('/api/github/push-all', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website_id: websiteId }),
       });
       const data = await res.json();
       if (data.pr_url) window.open(data.pr_url, '_blank');
-      else alert(data.error || 'Failed to create PR');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setCreatingPR(null);
-    }
+      else alert(data.error || 'Failed');
+    } catch (err: any) { alert(err.message); }
+    finally { setPushingAll(false); }
   };
 
-  const markDeployed = async (recId: string) => {
-    setMarkingDeployed(recId);
-    try {
-      await fetch('/api/recommendations/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recommendation_id: recId, website_id: websiteId }),
-      });
-      setDeployedIds(prev => new Set(prev).add(recId));
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setMarkingDeployed(null);
-    }
-  };
-
-  const handleConnectGitHub = async () => {
-    if (!websiteId) {
-      alert('Please go to a specific site page to connect GitHub.');
-      return;
-    }
-    if (!repoName) { alert('Please enter a repository name (e.g., owner/repo)'); return; }
-    setConnectingGitHub(true);
-    try {
-      await fetch('/api/github/save-repo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_id: websiteId, repo: repoName }),
-      });
-      window.location.href = `/api/github/connect?website_id=${websiteId}`;
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setConnectingGitHub(false);
-    }
-  };
-
-  const updateRepoName = async () => {
-    if (!repoName) { alert('Please enter a repository name'); return; }
-    try {
-      const res = await fetch('/api/github/save-repo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_id: websiteId, repo: repoName }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Repository updated! Refresh the page to see changes.');
-        setEditingRepo(false);
-      } else {
-        alert(data.error || 'Failed to update repo');
-      }
-    } catch (err: any) {
-      alert(err.message);
-    }
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    await fetch('/api/github/disconnect', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ website_id: websiteId }),
+    });
+    location.reload();
   };
 
   return (
     <div className="space-y-4">
-      {/* ✅ Upgrade Modal for Free Users */}
       {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-8 max-w-md mx-4 text-center relative">
-            <button onClick={() => setShowUpgradeModal(false)} className="absolute top-3 right-3 text-[#94a3b8] hover:text-white">
-              <X size={18} />
-            </button>
-            <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-purple-400" />
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-8 max-w-md text-center relative">
+            <button onClick={() => setShowUpgradeModal(false)} className="absolute top-3 right-3 text-[#94a3b8] hover:text-white"><X size={18} /></button>
+            <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4"><Shield className="w-8 h-8 text-purple-400" /></div>
             <h2 className="text-xl font-bold text-white mb-2">Unlock Complete AI Visibility</h2>
-            <p className="text-sm text-[#94a3b8] mb-6">
-              We've detected key optimizations that will help your brand rank higher in ChatGPT, Gemini, Claude, and Perplexity.
-            </p>
+            <p className="text-sm text-[#94a3b8] mb-6">We've detected key optimizations that will help your brand rank higher in ChatGPT, Gemini, Claude, and Perplexity.</p>
             <div className="bg-[#0f172a] rounded-xl p-4 mb-6 text-left space-y-2">
               <div className="flex items-center gap-2 text-sm text-white"><Zap className="w-4 h-4 text-purple-400" />24/7 AI visibility monitoring</div>
               <div className="flex items-center gap-2 text-sm text-white"><Zap className="w-4 h-4 text-purple-400" />Ready-to-paste schema fixes</div>
               <div className="flex items-center gap-2 text-sm text-white"><Zap className="w-4 h-4 text-purple-400" />Competitor gap analysis</div>
               <div className="flex items-center gap-2 text-sm text-white"><Zap className="w-4 h-4 text-purple-400" />Weekly AI audit reports</div>
             </div>
-            <a href="/?pricing=true#pricing" className="block w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold transition-all">
-              Upgrade Now - Starting at $49/mo
-            </a>
-            <p className="text-xs text-[#64748b] mt-2">No credit card required for free trial</p>
+            <a href="/?pricing=true#pricing" className="block w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold">Upgrade Now - Starting at $49/mo</a>
           </div>
         </div>
       )}
 
-      {/* ✅ GitHub Connect - Not connected */}
-      {!hideGitHub && websiteId && !githubConnected && !isFreePlan && (
-        <div className="bg-gradient-to-r from-indigo-600/10 to-purple-600/10 border border-indigo-400/20 rounded-xl p-4 mb-4">
-          {!showGitHubInput ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <GitPullRequest className="text-indigo-400" size={18} />
-                <span className="text-white text-sm font-medium">Auto-deploy fixes via GitHub</span>
-              </div>
-              <button onClick={() => setShowGitHubInput(true)} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2">
-                <ExternalLink size={14} />
-                Connect GitHub
-              </button>
-            </div>
-          ) : (
+      {/* GitHub Section */}
+      {!hideGitHub && websiteId && !isFreePlan && (
+        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-4">
+          {!githubConnected ? (
+            <button onClick={handleConnect} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+              <GitPullRequest size={18} /> Connect GitHub to Auto-Deploy Fixes
+            </button>
+          ) : showRepoSelect ? (
             <div>
-              <h3 className="text-white font-medium mb-2">Connect GitHub Repository</h3>
-              <p className="text-sm text-[#94a3b8] mb-3">Enter your repository to enable automatic Pull Requests for fixes.</p>
+              <h3 className="text-white font-medium mb-2">Select Repository</h3>
+              <select value={selectedRepo} onChange={(e) => setSelectedRepo(e.target.value)} className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mb-2">
+                <option value="">Choose a repository...</option>
+                {repos.map((r: any) => <option key={r.name} value={r.name}>{r.name}</option>)}
+              </select>
               <div className="flex gap-2">
-                <input type="text" value={repoName} onChange={(e) => setRepoName(e.target.value)} placeholder="owner/repository" className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm" />
-                <button onClick={handleConnectGitHub} disabled={connectingGitHub} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white text-sm flex items-center gap-2">
-                  {connectingGitHub ? <LoadingSpinner size={14} /> : <GitPullRequest size={14} />}Connect
-                </button>
+                <button onClick={handleSelectRepo} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white">Save</button>
+                <button onClick={() => setShowRepoSelect(false)} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-white">Cancel</button>
               </div>
-              <button onClick={() => setShowGitHubInput(false)} className="text-xs text-[#94a3b8] hover:text-white mt-2">Cancel</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ✅ GitHub Connected - Editable */}
-      {githubConnected && !isFreePlan && (
-        <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-3 mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="text-green-400" size={16} />
-            <span className="text-green-400 text-sm font-medium">GitHub Connected</span>
-          </div>
-          {editingRepo ? (
-            <div className="flex gap-2">
-              <input type="text" value={repoName} onChange={(e) => setRepoName(e.target.value)} placeholder="owner/repository" className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm" />
-              <button onClick={updateRepoName} className="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-white text-sm">Save</button>
-              <button onClick={() => setEditingRepo(false)} className="bg-gray-600 hover:bg-gray-500 px-3 py-1.5 rounded-lg text-white text-sm">Cancel</button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <span className="text-green-300 text-xs">{repoName || githubRepo}</span>
-              <button onClick={() => setEditingRepo(true)} className="text-green-400 hover:text-green-300">
-                <Edit3 size={14} />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="text-green-400" size={16} />
+                  <span className="text-green-400 text-sm">{githubRepo || 'Connected'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowRepoSelect(true)} className="text-xs text-[#94a3b8] hover:text-white">Change</button>
+                  <button onClick={handleDisconnect} disabled={disconnecting} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"><Unlink size={12} />Disconnect</button>
+                </div>
+              </div>
+              <button onClick={handlePushAll} disabled={pushingAll || recommendations.length === 0} className="w-full bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                {pushingAll ? <LoadingSpinner size={16} /> : <GitPullRequest size={16} />}
+                Push All Fixes to GitHub
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* ✅ Free Plan Preview */}
+      {/* Free Plan */}
       {isFreePlan && recommendations.length > 0 && (
         <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-400/20 rounded-xl p-6 text-center">
           <Eye className="w-8 h-8 text-purple-400 mx-auto mb-3" />
           <h3 className="text-white font-semibold mb-2">{recommendations.length} AI Visibility Fixes Detected</h3>
           <p className="text-sm text-[#94a3b8] mb-4">We've identified optimizations that can improve your brand's visibility across ChatGPT, Gemini, Claude, and Perplexity.</p>
-          <button onClick={() => setShowUpgradeModal(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-medium transition-all">View Complete Analysis & Fixes</button>
+          <button onClick={() => setShowUpgradeModal(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-medium">View Complete Analysis & Fixes</button>
         </div>
       )}
 
-      {/* ✅ Paid Plan Recommendations */}
+      {/* Paid Plan - Simple Cards */}
       {!isFreePlan && recommendations.map((rec) => (
-        <div key={rec.id} className="bg-[#1e293b] rounded-xl border border-[#334155] p-5">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="text-white font-semibold">{rec.title}</h3>
-              <p className="text-sm text-[#94a3b8] mt-1">{rec.description}</p>
-              <div className="flex items-center gap-3 mt-3">
-                <span className={`px-2 py-0.5 text-xs rounded-full ${rec.priority === 'high' ? 'bg-red-400/10 text-red-400' : rec.priority === 'medium' ? 'bg-amber-400/10 text-amber-400' : 'bg-blue-400/10 text-blue-400'}`}>{rec.priority}</span>
-                <span className="text-xs text-[#94a3b8]">Impact: {rec.impact_score}/10 · Effort: {rec.effort_score}/10</span>
-                {deployedIds.has(rec.id) && <span className="px-2 py-0.5 text-xs rounded-full bg-green-400/10 text-green-400">Deployed</span>}
-              </div>
-              {rec.fix_code && (
-                <details className="mt-3">
-                  <summary className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">View Code (Copy-Paste Ready)</summary>
-                  <pre className="bg-[#0f172a] p-3 rounded text-xs text-[#94a3b8] overflow-x-auto max-h-32 mt-2">{rec.fix_code.substring(0, 500)}...</pre>
-                </details>
-              )}
-              {rec.fix_instructions && (
-                <details className="mt-2">
-                  <summary className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">How to Implement</summary>
-                  <p className="text-xs text-[#94a3b8] mt-1 whitespace-pre-line">{rec.fix_instructions}</p>
-                </details>
-              )}
-            </div>
-            <div className="flex flex-col items-end ml-4 space-y-2">
-              {rec.fix_code && <button onClick={() => copyFixCode(rec.fix_code, rec.id)} className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"><Copy size={14} />{copiedId === rec.id ? 'Copied' : 'Copy Fix'}</button>}
-              {githubConnected && !deployedIds.has(rec.id) && <button onClick={() => createPR(rec)} disabled={creatingPR === rec.id} className="flex items-center gap-1 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-500 disabled:opacity-50">{creatingPR === rec.id ? <LoadingSpinner size={14} /> : <GitPullRequest size={14} />}Create PR</button>}
-              {!deployedIds.has(rec.id) && <button onClick={() => markDeployed(rec.id)} disabled={markingDeployed === rec.id} className="flex items-center gap-1 text-sm text-green-400 hover:text-green-300">{markingDeployed === rec.id ? <LoadingSpinner size={14} /> : <CheckCircle size={14} />}Mark Deployed</button>}
-            </div>
+        <div key={rec.id} className="bg-[#1e293b] rounded-xl border border-[#334155] p-4">
+          <h3 className="text-white font-semibold text-sm">{rec.title}</h3>
+          <p className="text-xs text-[#94a3b8] mt-1">{rec.description}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className={`px-2 py-0.5 text-xs rounded-full ${rec.priority === 'high' ? 'bg-red-400/10 text-red-400' : rec.priority === 'medium' ? 'bg-amber-400/10 text-amber-400' : 'bg-blue-400/10 text-blue-400'}`}>{rec.priority}</span>
+            <span className="text-xs text-[#94a3b8]">Impact: {rec.impact_score}/10</span>
           </div>
+          {rec.fix_code && (
+            <details className="mt-2">
+              <summary className="text-xs text-indigo-400 cursor-pointer">View Fix Code</summary>
+              <pre className="bg-[#0f172a] p-2 rounded text-xs text-[#94a3b8] mt-1 max-h-24 overflow-hidden">{rec.fix_code.substring(0, 200)}...</pre>
+            </details>
+          )}
         </div>
       ))}
-      {recommendations.length === 0 && !isFreePlan && <p className="text-[#94a3b8] text-sm">No recommendations yet. Run an audit to get AI-powered fixes.</p>}
     </div>
   );
 }

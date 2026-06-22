@@ -6,9 +6,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const supabase = createServerSupabase();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -21,11 +19,9 @@ export async function GET(req: NextRequest) {
 
   const clientId = process.env.GITHUB_CLIENT_ID;
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`;
-  const state = encodeURIComponent(
-    JSON.stringify({ websiteId, userId: session.user.id })
-  );
+  const state = encodeURIComponent(JSON.stringify({ websiteId, userId: session.user.id }));
 
   const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=repo&state=${state}`;
 
-  return NextResponse.redirect(url);
+  return NextResponse.json({ url });
 }
