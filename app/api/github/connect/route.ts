@@ -23,5 +23,6 @@ export async function GET(req: NextRequest) {
 
   const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=repo&state=${state}`;
 
-  return NextResponse.json({ url });
+  // ✅ Redirect directly to GitHub
+  return NextResponse.redirect(url);
 }
