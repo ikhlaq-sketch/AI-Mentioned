@@ -122,14 +122,23 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
-  const today = new Date().getDate();
+   const today = new Date().getDate();
   let isSkipDay = false;
   let daysSinceCreation = 0;
   
   if (!isFreePlan && website.created_at) {
     const siteCreatedAt = new Date(website.created_at);
     daysSinceCreation = Math.floor((Date.now() - siteCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
-    isSkipDay = daysSinceCreation > 0 && daysSinceCreation % 21 === 0;
+
+    // ✅ Skip daily scan on weekly audit days (every 7th day of site lifecycle)
+    if (type === 'daily') {
+      isSkipDay = daysSinceCreation % 7 === 0;
+    }
+    
+    // ✅ Also skip every 21st day for crawl buffer
+    if (!isSkipDay) {
+      isSkipDay = daysSinceCreation > 0 && daysSinceCreation % 21 === 0;
+    }
   }
 
   console.log(`[v0] Today=${today}, daysSinceCreation=${daysSinceCreation}, isSkipDay=${isSkipDay}, isFreePlan=${isFreePlan}`);

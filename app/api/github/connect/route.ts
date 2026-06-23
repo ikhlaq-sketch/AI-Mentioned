@@ -21,8 +21,13 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`;
   const state = encodeURIComponent(JSON.stringify({ websiteId, userId: session.user.id }));
 
-  const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=repo&state=${state}`;
+  // ✅ Force re-authorization
+  const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=repo&state=${state}&prompt=consent`;
 
-  // ✅ Redirect directly to GitHub
-  return NextResponse.redirect(url);
+  // ✅ Redirect with no-cache headers
+  return NextResponse.redirect(url, {
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+    },
+  });
 }

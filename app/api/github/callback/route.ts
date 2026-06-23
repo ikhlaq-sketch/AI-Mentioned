@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   await service.from('websites').update({ github_token_encrypted: encrypted }).eq('id', state.websiteId).eq('user_id', state.userId);
 
   // ✅ Redirect to site detail with repo picker flag
-  return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/sites/${state.websiteId}?github_connected=true&select_repo=true`
-  );
+return NextResponse.redirect(
+  `${process.env.NEXT_PUBLIC_APP_URL}/recommendations?website_id=${state.websiteId}&github_connected=true&select_repo=true`
+);
 }
