@@ -35,9 +35,9 @@ const plans = [
   },
 ];
 
-const llmModels = ['ChatGPT', 'Gemini', 'Claude', 'Perplexity'];
+// ✅ Updated: Google AI Overview + 4 LLM models
+const llmModels = ['Google AI Overviews', 'ChatGPT', 'Gemini', 'Claude', 'Perplexity'];
 
-// ✅ Animated counter hook
 function useCountUp(end: number, duration: number = 2000, start: boolean = true) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -56,7 +56,6 @@ function useCountUp(end: number, duration: number = 2000, start: boolean = true)
   return count;
 }
 
-// ✅ Intersection Observer hook
 function useInView(ref: React.RefObject<HTMLElement>) {
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -73,32 +72,28 @@ function useInView(ref: React.RefObject<HTMLElement>) {
 export default function LandingPage() {
   const [modelIndex, setModelIndex] = useState(0);
   const [displayedModel, setDisplayedModel] = useState('');
-  const typedModel = useTypewriter(llmModels[modelIndex], 60, 0);
+  const typedModel = useTypewriter(llmModels[modelIndex], 70, 0);
   const [user, setUser] = useState<any>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const router = useRouter();
 
-  // Refs for scroll animations
   const featuresRef = useRef<HTMLDivElement>(null);
   const whyRef = useRef<HTMLDivElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
-  const faqRef = useRef<HTMLDivElement>(null);
 
   const featuresInView = useInView(featuresRef);
   const whyInView = useInView(whyRef);
   const pricingInView = useInView(pricingRef);
 
-  // Cycle through LLM models
+  // ✅ Cycle through 5 models (Google + 4 LLMs)
   useEffect(() => {
     const cycleInterval = setInterval(() => {
       setModelIndex((prev) => (prev + 1) % llmModels.length);
-    }, 3000);
+    }, 2500);
     return () => clearInterval(cycleInterval);
   }, []);
 
-  useEffect(() => {
-    setDisplayedModel(typedModel);
-  }, [typedModel]);
+  useEffect(() => { setDisplayedModel(typedModel); }, [typedModel]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -122,7 +117,6 @@ export default function LandingPage() {
 
   const count40 = useCountUp(40, 2000, featuresInView);
   const count89 = useCountUp(89, 2000, featuresInView);
-  const count0 = useCountUp(0, 500, featuresInView);
 
   return (
     <div className="min-h-screen bg-white text-[#0f172a] selection:bg-emerald-100">
@@ -142,28 +136,40 @@ export default function LandingPage() {
       </nav>
 
       {/* ==================== HERO ==================== */}
-      <section className="relative pt-32 pb-20 px-4 overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-white">
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-100/50 rounded-full blur-3xl opacity-50" />
+      <section className="relative pt-28 pb-20 md:pt-36 md:pb-28 px-4 overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-white">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-emerald-100/40 rounded-full blur-3xl opacity-50" />
         <div className="absolute top-40 right-10 w-72 h-72 bg-green-100/30 rounded-full blur-3xl" />
         <div className="absolute bottom-10 left-10 w-60 h-60 bg-teal-50/40 rounded-full blur-3xl" />
-        <div className="max-w-5xl mx-auto text-center relative z-10">
+        <div className="max-w-6xl mx-auto text-center relative z-10">
+          {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-sm font-medium mb-8 animate-float">
             <Sparkles size={16} /> AI Search Visibility Platform
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
+
+          {/* Headline */}
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 leading-tight tracking-tight px-2">
             <span className="text-[#0f172a]">Get Ranked #1 in</span>{' '}
-            <span className="text-emerald-600 inline-block min-w-[200px]">{displayedModel}<span className="animate-pulse text-emerald-400">|</span></span>
+            <span className="text-emerald-600 inline-block min-w-[180px] md:min-w-[280px] text-left">
+              {displayedModel}
+              <span className="animate-pulse text-emerald-400">|</span>
+            </span>
           </h1>
+
+          {/* Subtitle */}
           <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
             Track how AI chatbots mention your brand. See why competitors rank above you. Get exact fixes deployed automatically through GitHub.
           </p>
+
+          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/register" className="group inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-8 py-4 rounded-full text-lg font-semibold text-white transition-all shadow-xl shadow-emerald-200 hover:shadow-2xl hover:shadow-emerald-300">
               Start Free Trial <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
             </Link>
             <a href="#features" className="inline-flex items-center gap-2 border-2 border-gray-200 hover:border-emerald-300 px-8 py-4 rounded-full text-lg font-medium text-gray-600 hover:text-emerald-600 transition-all">See How It Works</a>
           </div>
-          <div className="flex items-center justify-center gap-8 mt-12 text-sm text-gray-400">
+
+          {/* Social proof */}
+          <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8 mt-12 text-sm text-gray-400">
             <div className="flex items-center gap-2"><Users size={16} />Trusted by 500+ businesses</div>
             <div className="flex items-center gap-2"><TrendingUp size={16} />98% visibility improvement</div>
             <div className="flex items-center gap-2"><Lock size={16} />Enterprise-grade security</div>
@@ -184,15 +190,13 @@ export default function LandingPage() {
         </div>
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { icon: <Zap className="w-8 h-8 text-emerald-500" />, stat: '40%', count: count40, suffix: '%', text: 'of searches now happen on AI platforms and bypass Google entirely.' },
-            { icon: <Shield className="w-8 h-8 text-emerald-500" />, stat: '89%', count: count89, suffix: '%', text: 'of your competitors are already optimizing for AI visibility.' },
-            { icon: <BarChart3 className="w-8 h-8 text-emerald-500" />, stat: '0%', count: count0, suffix: '%', text: 'of businesses know if AI recommends them or their competitors.' },
+            { icon: <Zap className="w-8 h-8 text-emerald-500" />, count: count40, suffix: '%', text: 'of searches now happen on AI platforms and bypass Google entirely.' },
+            { icon: <Shield className="w-8 h-8 text-emerald-500" />, count: count89, suffix: '%', text: 'of your competitors are already optimizing for AI visibility.' },
+            { icon: <BarChart3 className="w-8 h-8 text-emerald-500" />, count: 0, suffix: '%', text: 'of businesses know if AI recommends them or their competitors.' },
           ].map((item, i) => (
             <div key={i} className="group bg-white border border-gray-100 rounded-2xl p-8 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-50 transition-all duration-500 hover:-translate-y-1">
               <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
-              <p className="text-5xl font-extrabold text-[#0f172a] mb-2">
-                {featuresInView ? item.count : 0}{item.suffix}
-              </p>
+              <p className="text-5xl font-extrabold text-[#0f172a] mb-2">{featuresInView ? item.count : 0}{item.suffix}</p>
               <p className="text-gray-500 leading-relaxed">{item.text}</p>
             </div>
           ))}
@@ -219,10 +223,7 @@ export default function LandingPage() {
               { step: '4', title: 'Fix', desc: 'Code fixes deployed via GitHub PR', icon: <Trophy size={24} /> },
             ].map((item, i) => (
               <div key={i} className="relative text-center group">
-                {/* Connecting line */}
-                {i < 3 && (
-                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-emerald-300 to-emerald-100" />
-                )}
+                {i < 3 && <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-emerald-300 to-emerald-100" />}
                 <div className="relative z-10 w-16 h-16 mx-auto mb-4 rounded-2xl bg-white border-2 border-emerald-200 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 group-hover:shadow-xl group-hover:shadow-emerald-200 transition-all duration-300">
                   {item.icon}
                 </div>
@@ -241,9 +242,7 @@ export default function LandingPage() {
           <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
             <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> The Comparison <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
           </span>
-          <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">
-            Why <span className="text-emerald-600">AIMentioned</span>?
-          </h2>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">Why <span className="text-emerald-600">AIMentioned</span>?</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">See how we stack up against the competition. We're the only platform that fixes your AI visibility automatically.</p>
         </div>
         <div className={`overflow-x-auto rounded-2xl border border-gray-200 shadow-sm transition-all duration-700 ${whyInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
@@ -293,17 +292,12 @@ export default function LandingPage() {
             {plans.map((plan, idx) => (
               <div key={plan.name}
                 className={`relative bg-white border rounded-2xl p-6 flex flex-col transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${plan.highlighted ? 'border-emerald-400 shadow-xl shadow-emerald-100 ring-2 ring-emerald-400 scale-105' : 'border-gray-200 hover:border-emerald-200'}`}
-                style={{ transitionDelay: `${idx * 100}ms` }}
-              >
+                style={{ transitionDelay: `${idx * 100}ms` }}>
                 {plan.highlighted && <span className="absolute -top-3 right-4 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</span>}
                 <h3 className="text-xl font-bold text-[#0f172a]">{plan.name}</h3>
                 <div className="mt-2 mb-4"><span className="text-4xl font-bold text-[#0f172a]">{plan.price}</span><span className="text-gray-400">/month</span></div>
                 <p className="text-sm text-gray-500 mb-4">{plan.sites} site{plan.sites > 1 ? 's' : ''} · {plan.queries.toLocaleString()} queries</p>
-                <ul className="space-y-2.5 mb-6 flex-1">
-                  {plan.features.map((feat, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />{feat}</li>
-                  ))}
-                </ul>
+                <ul className="space-y-2.5 mb-6 flex-1">{plan.features.map((feat, i) => (<li key={i} className="flex items-start gap-2 text-sm text-gray-600"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />{feat}</li>))}</ul>
                 <button onClick={() => handleCheckout(plan.variantId)} disabled={loadingPlan === plan.variantId}
                   className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${plan.highlighted ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200' : 'border-2 border-gray-200 hover:border-emerald-300 text-gray-700'} ${loadingPlan === plan.variantId ? 'opacity-50 cursor-wait' : ''}`}>
                   {loadingPlan === plan.variantId ? 'Redirecting...' : 'Get Started'}
@@ -315,7 +309,7 @@ export default function LandingPage() {
       </section>
 
       {/* ==================== FAQ ==================== */}
-      <section ref={faqRef} id="faq" className="max-w-4xl mx-auto px-4 py-20">
+      <section id="faq" className="max-w-4xl mx-auto px-4 py-20">
         <div className="text-center mb-12">
           <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
             <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> Got Questions? <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
@@ -324,17 +318,16 @@ export default function LandingPage() {
         </div>
         <div className="space-y-3">
           {[
-            { q: 'What is GEO and AEO?', a: 'Generative Engine Optimization and Answer Engine Optimization are techniques to improve how AI models reference your brand in their answers. Think SEO, but for ChatGPT instead of Google.' },
-            { q: 'Which AI models do you monitor?', a: 'We monitor ChatGPT, Gemini, Claude, and Perplexity — covering 99% of all measurable AI referrals. Scale and Agency plans include additional models.' },
-            { q: 'How does GitHub integration work?', a: 'Connect your repository via secure OAuth. We automatically create Pull Requests with ready-to-paste schema code that improves your AI rankings.' },
-            { q: 'What happens when I reach my query limit?', a: 'Free and Starter plans pause until your reset date. Growth, Scale, and Agency plans continue at $0.05 per additional query.' },
-            { q: 'How long until I see results?', a: 'Most users see AI visibility improvements within 2-4 weeks after implementing our schema recommendations. We track your progress weekly.' },
+            { q: 'What is GEO and AEO?', a: 'Generative Engine Optimization and Answer Engine Optimization are techniques to improve how AI models reference your brand. Think SEO, but for ChatGPT instead of Google.' },
+            { q: 'Which AI models do you monitor?', a: 'We monitor ChatGPT, Gemini, Claude, and Perplexity — covering 99% of measurable AI referrals. Scale and Agency plans include additional models.' },
+            { q: 'How does GitHub integration work?', a: 'Connect your repository via OAuth. We create Pull Requests with ready-to-paste schema code that improves your AI rankings.' },
+            { q: 'What happens when I reach my query limit?', a: 'Free and Starter plans pause until reset. Growth, Scale, and Agency plans continue at $0.05 per additional query.' },
+            { q: 'How long until I see results?', a: 'Most users see AI visibility improvements within 2-4 weeks after implementing our schema recommendations.' },
             { q: 'Do you offer refunds?', a: 'Yes, we offer a 14-day money-back guarantee on all paid plans. No questions asked.' },
           ].map((item, i) => (
             <details key={i} className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 transition-all duration-300">
               <summary className="cursor-pointer text-[#0f172a] font-semibold list-none flex justify-between items-center">
-                {item.q}
-                <span className="text-emerald-500 group-open:rotate-180 transition-transform duration-300 text-lg">+</span>
+                {item.q}<span className="text-emerald-500 group-open:rotate-180 transition-transform duration-300 text-lg">+</span>
               </summary>
               <p className="text-gray-500 mt-3 leading-relaxed">{item.a}</p>
             </details>
@@ -346,34 +339,18 @@ export default function LandingPage() {
       <footer className="border-t border-gray-200 bg-white py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <h3 className="text-lg font-bold text-emerald-600 mb-3">AIMentioned</h3>
-              <p className="text-sm text-gray-500">AI Search Visibility Platform. Track, analyze, and improve your brand presence across ChatGPT, Gemini, Claude, and Perplexity.</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-[#0f172a] mb-3">Legal</h3>
-              <div className="space-y-2 text-sm">
-                <Link href="/privacy" className="block text-gray-500 hover:text-emerald-600 transition">Privacy Policy</Link>
-                <Link href="/terms" className="block text-gray-500 hover:text-emerald-600 transition">Terms of Service</Link>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-[#0f172a] mb-3">Contact</h3>
-              <div className="space-y-2 text-sm">
-                <a href="mailto:AK.Systems@gmail.com" className="block text-gray-500 hover:text-emerald-600 transition">AK.Systems@gmail.com</a>
-              </div>
-            </div>
+            <div><h3 className="text-lg font-bold text-emerald-600 mb-3">AIMentioned</h3><p className="text-sm text-gray-500">AI Search Visibility Platform. Track and improve your brand presence across ChatGPT, Gemini, Claude, and Perplexity.</p></div>
+            <div><h3 className="text-sm font-semibold text-[#0f172a] mb-3">Legal</h3><div className="space-y-2 text-sm"><Link href="/privacy" className="block text-gray-500 hover:text-emerald-600 transition">Privacy Policy</Link><Link href="/terms" className="block text-gray-500 hover:text-emerald-600 transition">Terms of Service</Link></div></div>
+            <div><h3 className="text-sm font-semibold text-[#0f172a] mb-3">Contact</h3><div className="space-y-2 text-sm"><a href="mailto:AK.Systems@gmail.com" className="block text-gray-500 hover:text-emerald-600 transition">AK.Systems@gmail.com</a></div></div>
           </div>
-          <div className="border-t border-gray-200 pt-6 text-center text-sm text-gray-400">
-            <p>© {new Date().getFullYear()} AIMentioned. All rights reserved.</p>
-          </div>
+          <div className="border-t border-gray-200 pt-6 text-center text-sm text-gray-400"><p>© {new Date().getFullYear()} AIMentioned. All rights reserved.</p></div>
         </div>
       </footer>
     </div>
   );
 }
 
-// Missing Search icon import
+// Missing Search icon
 function Search(props: any) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
