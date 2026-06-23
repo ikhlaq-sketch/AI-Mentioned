@@ -89,7 +89,7 @@ export default function LandingPage() {
   useEffect(() => {
     const cycleInterval = setInterval(() => {
       setModelIndex((prev) => (prev + 1) % llmModels.length);
-    }, 2500);
+    }, 4000);
     return () => clearInterval(cycleInterval);
   }, []);
 
