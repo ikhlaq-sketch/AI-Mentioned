@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { GitPullRequest, CheckCircle, ArrowUpCircle, X, Shield, Zap, Eye, Unlink, Code, ChevronDown } from 'lucide-react';
+import { GitPullRequest, CheckCircle, ArrowUpCircle, X, Shield, Zap, Eye, Unlink, Code, ChevronDown, Copy, Check } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function RecommendationsList({
@@ -18,6 +18,7 @@ export default function RecommendationsList({
   const [showRepoSelect, setShowRepoSelect] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('select_repo') === 'true' && githubConnected) {
@@ -62,6 +63,12 @@ export default function RecommendationsList({
     setDisconnecting(true);
     await fetch('/api/github/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: websiteId }) });
     window.location.href = window.location.pathname;
+  };
+
+  const copyFixCode = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -153,7 +160,7 @@ export default function RecommendationsList({
         <div key={rec.id} className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-emerald-200 hover:shadow-sm transition-all">
           <div className="flex items-start gap-3">
             <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${rec.priority === 'high' ? 'bg-red-500' : rec.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <h3 className="text-gray-900 font-semibold">{rec.title}</h3>
               <p className="text-sm text-gray-500 mt-1">{rec.description}</p>
               <div className="flex items-center gap-3 mt-3">
@@ -165,7 +172,20 @@ export default function RecommendationsList({
                   <summary className="text-sm text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium flex items-center gap-1">
                     <Code size={14} /> View Fix Code <ChevronDown size={14} className="group-open:rotate-180 transition-transform" />
                   </summary>
-                  <pre className="bg-gray-50 p-3 rounded-xl text-xs text-gray-600 mt-2 max-h-32 overflow-y-auto border border-gray-100">{rec.fix_code.substring(0, 500)}...</pre>
+                  <div className="mt-2 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
+                      <span className="text-xs text-gray-400 font-medium">Copy-paste this code into your website</span>
+                      <button
+                        onClick={(e) => { e.preventDefault(); copyFixCode(rec.fix_code, rec.id); }}
+                        className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                      >
+                        {copiedId === rec.id ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy Code</>}
+                      </button>
+                    </div>
+                    <pre className="p-3 text-xs text-gray-600 overflow-x-auto overflow-y-auto" style={{ maxHeight: '200px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {rec.fix_code}
+                    </pre>
+                  </div>
                 </details>
               )}
             </div>

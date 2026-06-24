@@ -97,9 +97,12 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
       {activeTab === 'prompts' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Active Prompts</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Active Prompts</h3>
+              <p className="text-xs text-gray-500 mt-0.5">These prompts are used when auditing your site.</p>
+            </div>
             <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
-              <Plus size={16} /> Add Prompt
+              <Plus size={16} /> Add Custom Prompt
             </button>
           </div>
 
@@ -115,6 +118,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
             </div>
           )}
 
+          {/* ✅ Always show default prompt if no custom prompts */}
           {prompts.length > 0 ? (
             <div className="space-y-3">
               {prompts.map((prompt: any) => (
@@ -128,9 +132,11 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white border border-gray-200 rounded-2xl">
-              <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No prompts configured. Add one to customize audit questions.</p>
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-gray-900 text-sm font-medium">
+                What are the top options for {site.category || 'your industry'}?
+              </p>
+              <p className="text-xs text-gray-400 mt-1">Default prompt — used for all audits. Add a custom prompt above to customize.</p>
             </div>
           )}
         </div>
