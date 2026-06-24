@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Eye, EyeOff } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Eye } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -12,14 +12,13 @@ import RecommendationsList from './RecommendationsList';
 export default function SiteDetailTabs({ site, latestMentions, userId, userPlan = 'free' }: { site: any; latestMentions: any[]; userId: string; userPlan?: string }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(!site.last_audit_at);
-  const [prompts, setPrompts] = useState(site.prompts || []);
+  const [prompts, setPrompts] = useState<any[]>([]);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
   const [newPrompt, setNewPrompt] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
-  const isAutoMode = site.scan_mode === 'auto';
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -27,6 +26,14 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'audits', label: 'Audit History', icon: Search },
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
+
+  // ✅ Fetch real prompts from database
+  useEffect(() => {
+    fetch(`/api/prompts/list?website_id=${site.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setPrompts(data); })
+      .catch(() => {});
+  }, [site.id]);
 
   useEffect(() => {
     if (!site.last_audit_at) {
@@ -101,26 +108,15 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
             <div>
               <h3 className="text-lg font-bold text-gray-900">AI Audit Prompts</h3>
               <p className="text-sm text-gray-500 mt-0.5">
-                These questions are asked to ChatGPT, Gemini, Claude{site.plan === 'scale' || site.plan === 'agency_pro' ? ', and Perplexity' : ''} during each audit.
+                These are the actual questions our AI models ask about your brand during audits.
               </p>
             </div>
-            {!isAutoMode && (
-              <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm">
-                <Plus size={16} /> Add Prompt
-              </button>
-            )}
+            <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm">
+              <Plus size={16} /> Add Prompt
+            </button>
           </div>
 
-          {/* Mode indicator */}
-          <div className={`mb-4 p-3 rounded-xl border ${isAutoMode ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
-            <p className={`text-sm font-medium ${isAutoMode ? 'text-blue-700' : 'text-amber-700'}`}>
-              {isAutoMode
-                ? '🔒 Auto Mode — prompts are managed automatically. Switch to Manual mode to customize.'
-                : '✏️ Manual Mode — you can customize which questions AI models answer about your brand.'}
-            </p>
-          </div>
-
-          {showAddPrompt && !isAutoMode && (
+          {showAddPrompt && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
               <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)}
                 placeholder="e.g. What are the top options for Cloud Hosting?"
@@ -132,23 +128,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
             </div>
           )}
 
-          {/* Default Prompt (always shown) */}
-          <div className="bg-white border border-emerald-200 rounded-xl p-4 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-gray-900 text-sm font-medium">
-                  What are the top options for {site.category || 'your industry'}?
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Default prompt — always active during audits.</p>
-              </div>
-              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                <Eye size={12} /> Active
-              </span>
-            </div>
-          </div>
-
-          {/* Custom Prompts */}
-          {prompts.length > 0 && (
+          {prompts.length > 0 ? (
             <div className="space-y-3">
               {prompts.map((prompt: any) => (
                 <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -161,28 +141,29 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p>
-                        <p className="text-xs text-gray-400 mt-1">Custom prompt</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-900 text-sm font-medium truncate">{prompt.prompt_text}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Active prompt — used in {site.scan_mode === 'auto' ? 'daily & weekly' : 'weekly'} audits
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {!isAutoMode && (
-                          <>
-                            <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
-                              className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
-                              {prompt.is_active ? 'Active' : 'Inactive'}
-                            </button>
-                            <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }}
-                              className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
-                            <button onClick={() => deletePrompt(prompt.id)}
-                              className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-                          </>
-                        )}
+                      <div className="flex items-center gap-2 ml-3">
+                        <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
+                          className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                          {prompt.is_active ? 'Active' : 'Inactive'}
+                        </button>
+                        <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }} className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
+                        <button onClick={() => deletePrompt(prompt.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                       </div>
                     </div>
                   )}
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-2xl">
+              <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">No prompts saved yet. Run an audit to auto-generate prompts, or add one manually.</p>
             </div>
           )}
         </div>
