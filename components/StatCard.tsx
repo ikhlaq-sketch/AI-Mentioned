@@ -1,21 +1,41 @@
 import { ReactNode } from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 export default function StatCard({
   icon,
   label,
   value,
+  trend,
 }: {
   icon: ReactNode;
   label: string;
   value: string | number;
+  trend?: 'up' | 'down' | 'neutral' | 'active' | 'warning';
 }) {
+  const trendConfig = {
+    up: { icon: <TrendingUp size={14} />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    down: { icon: <TrendingDown size={14} />, color: 'text-red-500', bg: 'bg-red-50' },
+    neutral: { icon: <Minus size={14} />, color: 'text-gray-400', bg: 'bg-gray-50' },
+    active: { icon: <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    warning: { icon: <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />, color: 'text-amber-500', bg: 'bg-amber-50' },
+  };
+
+  const config = trend ? trendConfig[trend] : null;
+
   return (
-    <div className="bg-[#1e293b] p-4 rounded-xl border border-[#334155] flex items-center gap-4">
-      <div className="text-indigo-400">{icon}</div>
-      <div>
-        <p className="text-2xl font-bold text-white">{value}</p>
-        <p className="text-sm text-[#94a3b8]">{label}</p>
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-emerald-200 hover:shadow-md transition-all duration-300">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+          {icon}
+        </div>
+        {config && (
+          <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${config.bg} ${config.color}`}>
+            {config.icon}
+          </span>
+        )}
       </div>
+      <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+      <p className="text-sm text-gray-500">{label}</p>
     </div>
   );
 }
