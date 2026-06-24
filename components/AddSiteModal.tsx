@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, Globe, Zap, ChevronRight, ChevronLeft, Sparkles, Shield } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function AddSiteModal() {
@@ -16,24 +16,12 @@ export default function AddSiteModal() {
   const [url, setUrl] = useState('');
   const [brandName, setBrandName] = useState('');
   const [category, setCategory] = useState('');
-  const [competitors, setCompetitors] = useState<
-    { domain: string; brand_name: string }[]
-  >([]);
+  const [competitors, setCompetitors] = useState<{ domain: string; brand_name: string }[]>([]);
   const [scanMode, setScanMode] = useState<'auto' | 'manual'>('auto');
 
-  const addCompetitor = () => {
-    setCompetitors([...competitors, { domain: '', brand_name: '' }]);
-  };
-
-  const removeCompetitor = (i: number) => {
-    setCompetitors(competitors.filter((_, idx) => idx !== i));
-  };
-
-  const updateCompetitor = (
-    i: number,
-    field: 'domain' | 'brand_name',
-    value: string
-  ) => {
+  const addCompetitor = () => setCompetitors([...competitors, { domain: '', brand_name: '' }]);
+  const removeCompetitor = (i: number) => setCompetitors(competitors.filter((_, idx) => idx !== i));
+  const updateCompetitor = (i: number, field: 'domain' | 'brand_name', value: string) => {
     const updated = [...competitors];
     updated[i][field] = value;
     setCompetitors(updated);
@@ -44,71 +32,34 @@ export default function AddSiteModal() {
     setError('');
     try {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('sites_limit')
-        .eq('id', user.id)
-        .single();
-
-      const { count } = await supabase
-        .from('websites')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+      const { data: profile } = await supabase.from('profiles').select('sites_limit').eq('id', user.id).single();
+      const { count } = await supabase.from('websites').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
 
       if ((count ?? 0) >= (profile?.sites_limit ?? 0)) {
-        throw new Error(
-          'You have reached your site limit. Please upgrade your plan.'
-        );
+        throw new Error('You have reached your site limit. Please upgrade your plan.');
       }
 
       const domain = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const { data: site, error: siteErr } = await supabase
-        .from('websites')
-        .insert({
-          user_id: user.id,
-          domain,
-          brand_name: brandName,
-          category,
-          scan_mode: scanMode,
-        })
-        .select()
-        .single();
+      const { data: site, error: siteErr } = await supabase.from('websites').insert({
+        user_id: user.id, domain, brand_name: brandName, category, scan_mode: scanMode,
+      }).select().single();
 
       if (siteErr) throw siteErr;
 
-      // Save valid competitors only
       if (competitors.length > 0) {
-        const validCompetitors = competitors.filter(
-          (c) => c.domain.trim() !== ''
-        );
+        const validCompetitors = competitors.filter(c => c.domain.trim() !== '');
         if (validCompetitors.length > 0) {
-          await supabase.from('competitors').insert(
-            validCompetitors.map((c) => ({
-              website_id: site.id,
-              user_id: user.id,
-              domain: c.domain,
-              brand_name: c.brand_name,
-            }))
-          );
+          await supabase.from('competitors').insert(validCompetitors.map(c => ({
+            website_id: site.id, user_id: user.id, domain: c.domain, brand_name: c.brand_name,
+          })));
         }
       }
 
-      // Fire-and-forget background jobs (no await so modal closes instantly)
-      fetch('/api/crawl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_id: site.id }),
-      });
-      fetch('/api/audit/baseline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_id: site.id }),
-      });
+      fetch('/api/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: site.id }) });
+      fetch('/api/audit/baseline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: site.id }) });
 
       setOpen(false);
       router.refresh();
@@ -120,177 +71,111 @@ export default function AddSiteModal() {
     }
   };
 
+  const steps = [
+    { num: 1, label: 'Website' },
+    { num: 2, label: 'Competitors' },
+    { num: 3, label: 'Scan Mode' },
+  ];
+
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-500"
-      >
-        + Add New Site
+      <button onClick={() => setOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-lg shadow-emerald-200 flex items-center gap-2">
+        <Plus size={16} /> Add New Site
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[#1e293b] rounded-xl border border-[#334155] w-full max-w-md p-6 relative">
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute top-3 right-3 text-[#94a3b8] hover:text-white"
-            >
-              <X size={18} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-lg p-0 relative overflow-hidden">
+            <button onClick={() => setOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
+              <X size={20} />
             </button>
 
-            <h2 className="text-xl font-bold text-white mb-4">Add New Site</h2>
-
-            {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
-
-            {step === 1 && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-[#94a3b8]">Website URL</label>
-                  <input
-                    type="text"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://example.com"
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1"
-                  />
+            {/* Progress Steps */}
+            <div className="flex items-center justify-center gap-2 pt-6 pb-4 px-6 bg-gray-50 border-b border-gray-100">
+              {steps.map((s, i) => (
+                <div key={s.num} className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${step >= s.num ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                    {step > s.num ? '✓' : s.num}
+                  </div>
+                  <span className={`text-sm font-medium ${step >= s.num ? 'text-emerald-600' : 'text-gray-400'}`}>{s.label}</span>
+                  {i < 2 && <div className={`w-8 h-0.5 ${step > s.num ? 'bg-emerald-400' : 'bg-gray-200'}`} />}
                 </div>
-                <div>
-                  <label className="text-sm text-[#94a3b8]">Brand Name</label>
-                  <input
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="My Company"
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-[#94a3b8]">Category</label>
-                  <input
-                    type="text"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="e.g. CRM Software, Dental Services"
-                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1"
-                  />
-                </div>
-                <button
-                  disabled={!url || !brandName || !category}
-                  onClick={() => setStep(2)}
-                  className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-500 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+              ))}
+            </div>
 
-            {step === 2 && (
-              <div className="space-y-4">
-                <p className="text-sm text-[#94a3b8]">
-                  Add competitors to track their AI visibility (optional)
-                </p>
-                {competitors.map((comp, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={comp.domain}
-                        onChange={(e) =>
-                          updateCompetitor(idx, 'domain', e.target.value)
-                        }
-                        placeholder="competitor.com"
-                        className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white"
-                      />
-                      <input
-                        type="text"
-                        value={comp.brand_name}
-                        onChange={(e) =>
-                          updateCompetitor(idx, 'brand_name', e.target.value)
-                        }
-                        placeholder="Brand name"
-                        className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1"
-                      />
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Add New Website</h2>
+              <p className="text-sm text-gray-500 mb-6">Monitor your brand's AI visibility in 60 seconds.</p>
+
+              {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-xl mb-4">{error}</div>}
+
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Website URL</label>
+                    <div className="relative mt-1">
+                      <Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="example.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
                     </div>
-                    <button
-                      onClick={() => removeCompetitor(idx)}
-                      className="text-red-400 hover:text-red-300 mt-1"
-                    >
-                      <Trash2 size={16} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Brand Name</label>
+                    <input type="text" value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="My Company" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Category</label>
+                    <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. CRM Software, Dental Services" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                  </div>
+                  <button disabled={!url || !brandName || !category} onClick={() => setStep(2)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    Continue <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500">Add competitors to track their AI visibility <span className="text-gray-400">(optional)</span></p>
+                  {competitors.map((comp, idx) => (
+                    <div key={idx} className="flex gap-2 items-start bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <div className="flex-1 space-y-2">
+                        <input type="text" value={comp.domain} onChange={(e) => updateCompetitor(idx, 'domain', e.target.value)} placeholder="competitor.com" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
+                        <input type="text" value={comp.brand_name} onChange={(e) => updateCompetitor(idx, 'brand_name', e.target.value)} placeholder="Brand name" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
+                      </div>
+                      <button onClick={() => removeCompetitor(idx)} className="text-gray-400 hover:text-red-500 mt-1"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                  <button onClick={addCompetitor} className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium"><Plus size={14} /> Add Competitor</button>
+                  <div className="flex gap-3">
+                    <button onClick={() => setStep(1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium flex items-center justify-center gap-2"><ChevronLeft size={16} /> Back</button>
+                    <button onClick={() => setStep(3)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">Continue <ChevronRight size={16} /></button>
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500 mb-3">Choose how you want to monitor this site</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setScanMode('auto')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'auto' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <Zap size={20} className={scanMode === 'auto' ? 'text-emerald-600' : 'text-gray-400'} />
+                      <p className="font-semibold text-gray-900 mt-2">Auto</p>
+                      <p className="text-xs text-gray-500 mt-1">Daily scans + weekly audits. Hands‑off.</p>
+                    </button>
+                    <button onClick={() => setScanMode('manual')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'manual' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <Shield size={20} className={scanMode === 'manual' ? 'text-emerald-600' : 'text-gray-400'} />
+                      <p className="font-semibold text-gray-900 mt-2">Manual</p>
+                      <p className="text-xs text-gray-500 mt-1">Weekly audits only. You trigger extra scans.</p>
                     </button>
                   </div>
-                ))}
-                <button
-                  onClick={addCompetitor}
-                  className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
-                >
-                  <Plus size={14} /> Add Competitor
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="flex-1 bg-[#334155] text-white py-2 rounded-lg hover:bg-[#475569]"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={() => setStep(3)}
-                    className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-500"
-                  >
-                    Next
-                  </button>
+                  <div className="flex gap-3">
+                    <button onClick={() => setStep(2)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium flex items-center justify-center gap-2"><ChevronLeft size={16} /> Back</button>
+                    <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 flex justify-center items-center gap-2">
+                      {loading ? <LoadingSpinner size={18} /> : <Sparkles size={16} />} Start Monitoring
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-4">
-                <p className="text-sm text-[#94a3b8]">Choose scan mode</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setScanMode('auto')}
-                    className={`p-3 rounded-lg border ${
-                      scanMode === 'auto'
-                        ? 'border-indigo-400 bg-indigo-400/10'
-                        : 'border-[#334155] bg-[#0f172a]'
-                    } text-left`}
-                  >
-                    <p className="text-white font-medium">Auto</p>
-                    <p className="text-xs text-[#94a3b8] mt-1">
-                      Daily scans + weekly audits. Hands‑off.
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => setScanMode('manual')}
-                    className={`p-3 rounded-lg border ${
-                      scanMode === 'manual'
-                        ? 'border-indigo-400 bg-indigo-400/10'
-                        : 'border-[#334155] bg-[#0f172a]'
-                    } text-left`}
-                  >
-                    <p className="text-white font-medium">Manual</p>
-                    <p className="text-xs text-[#94a3b8] mt-1">
-                      Weekly audits only. You trigger extra scans.
-                    </p>
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setStep(2)}
-                    className="flex-1 bg-[#334155] text-white py-2 rounded-lg hover:bg-[#475569]"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-500 disabled:opacity-50 flex justify-center items-center"
-                  >
-                    {loading ? <LoadingSpinner size={20} /> : 'Start Monitoring'}
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
