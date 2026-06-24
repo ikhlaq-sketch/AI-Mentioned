@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Eye, EyeOff } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -15,8 +15,11 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [prompts, setPrompts] = useState(site.prompts || []);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
   const [newPrompt, setNewPrompt] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
+  const isAutoMode = site.scan_mode === 'auto';
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -36,26 +39,24 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
   const addPrompt = async () => {
     if (!newPrompt.trim()) return;
-    const res = await fetch('/api/prompts/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ website_id: site.id, user_id: userId, prompt_text: newPrompt }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setPrompts([...prompts, data]);
-      setNewPrompt('');
-      setShowAddPrompt(false);
-    }
+    const res = await fetch('/api/prompts/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: site.id, user_id: userId, prompt_text: newPrompt }) });
+    if (res.ok) { const data = await res.json(); setPrompts([...prompts, data]); setNewPrompt(''); setShowAddPrompt(false); }
+  };
+
+  const updatePrompt = async (id: string) => {
+    await fetch('/api/prompts/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt_id: id, prompt_text: editText }) });
+    setPrompts(prompts.map((p: any) => p.id === id ? { ...p, prompt_text: editText } : p));
+    setEditingId(null);
   };
 
   const togglePrompt = async (id: string, isActive: boolean) => {
-    await fetch('/api/prompts/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt_id: id, is_active: !isActive }),
-    });
+    await fetch('/api/prompts/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt_id: id, is_active: !isActive }) });
     setPrompts(prompts.map((p: any) => p.id === id ? { ...p, is_active: !isActive } : p));
+  };
+
+  const deletePrompt = async (id: string) => {
+    await fetch('/api/prompts/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt_id: id }) });
+    setPrompts(prompts.filter((p: any) => p.id !== id));
   };
 
   if (isLoading) {
@@ -98,15 +99,28 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Active Prompts</h3>
-              <p className="text-xs text-gray-500 mt-0.5">These prompts are used when auditing your site.</p>
+              <h3 className="text-lg font-bold text-gray-900">AI Audit Prompts</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                These questions are asked to ChatGPT, Gemini, Claude{site.plan === 'scale' || site.plan === 'agency_pro' ? ', and Perplexity' : ''} during each audit.
+              </p>
             </div>
-            <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
-              <Plus size={16} /> Add Custom Prompt
-            </button>
+            {!isAutoMode && (
+              <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm">
+                <Plus size={16} /> Add Prompt
+              </button>
+            )}
           </div>
 
-          {showAddPrompt && (
+          {/* Mode indicator */}
+          <div className={`mb-4 p-3 rounded-xl border ${isAutoMode ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
+            <p className={`text-sm font-medium ${isAutoMode ? 'text-blue-700' : 'text-amber-700'}`}>
+              {isAutoMode
+                ? '🔒 Auto Mode — prompts are managed automatically. Switch to Manual mode to customize.'
+                : '✏️ Manual Mode — you can customize which questions AI models answer about your brand.'}
+            </p>
+          </div>
+
+          {showAddPrompt && !isAutoMode && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
               <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)}
                 placeholder="e.g. What are the top options for Cloud Hosting?"
@@ -118,25 +132,57 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
             </div>
           )}
 
-          {/* ✅ Always show default prompt if no custom prompts */}
-          {prompts.length > 0 ? (
+          {/* Default Prompt (always shown) */}
+          <div className="bg-white border border-emerald-200 rounded-xl p-4 mb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-gray-900 text-sm font-medium">
+                  What are the top options for {site.category || 'your industry'}?
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Default prompt — always active during audits.</p>
+              </div>
+              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                <Eye size={12} /> Active
+              </span>
+            </div>
+          </div>
+
+          {/* Custom Prompts */}
+          {prompts.length > 0 && (
             <div className="space-y-3">
               {prompts.map((prompt: any) => (
-                <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-                  <p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p>
-                  <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
-                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
-                    {prompt.is_active ? 'Active' : 'Inactive'}
-                  </button>
+                <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                  {editingId === prompt.id ? (
+                    <div className="flex gap-2">
+                      <input type="text" value={editText} onChange={(e) => setEditText(e.target.value)}
+                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
+                      <button onClick={() => updatePrompt(prompt.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">Save</button>
+                      <button onClick={() => setEditingId(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p>
+                        <p className="text-xs text-gray-400 mt-1">Custom prompt</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!isAutoMode && (
+                          <>
+                            <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
+                              className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                              {prompt.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                            <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }}
+                              className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
+                            <button onClick={() => deletePrompt(prompt.id)}
+                              className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <p className="text-gray-900 text-sm font-medium">
-                What are the top options for {site.category || 'your industry'}?
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Default prompt — used for all audits. Add a custom prompt above to customize.</p>
             </div>
           )}
         </div>
