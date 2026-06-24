@@ -2,26 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2 } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Sparkles } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
 import AuditTable from './AuditTable';
 import RecommendationsList from './RecommendationsList';
 
-export default function SiteDetailTabs({
-  site,
-  latestMentions,
-  userId,
-  userPlan = 'free',
-}: {
-  site: any;
-  latestMentions: any[];
-  userId: string;
-  userPlan?: string;
-}) {
+export default function SiteDetailTabs({ site, latestMentions, userId, userPlan = 'free' }: { site: any; latestMentions: any[]; userId: string; userPlan?: string }) {
   const [activeTab, setActiveTab] = useState('overview');
-  const [isLoading, setIsLoading] = useState(!site.last_audit_at); // Show loading if no audit yet
+  const [isLoading, setIsLoading] = useState(!site.last_audit_at);
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
@@ -32,12 +22,9 @@ export default function SiteDetailTabs({
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
 
-  // ✅ Poll until audit completes, then show data
   useEffect(() => {
     if (!site.last_audit_at) {
-      const interval = setInterval(() => {
-        router.refresh();
-      }, 3000); // Check every 3 seconds
+      const interval = setInterval(() => router.refresh(), 3000);
       return () => clearInterval(interval);
     } else {
       setIsLoading(false);
@@ -47,94 +34,63 @@ export default function SiteDetailTabs({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mb-4" />
-        <p className="text-white font-medium">Running AI Analysis...</p>
-        <p className="text-sm text-[#94a3b8] mt-2">
-          {isFreePlan 
-            ? 'Generating visibility insights...' 
-            : 'Querying ChatGPT, Gemini, Claude & Perplexity...'}
-        </p>
-        <p className="text-xs text-[#64748b] mt-4">This may take a few seconds</p>
+        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
+          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        </div>
+        <p className="text-gray-900 font-semibold text-lg">Running AI Analysis...</p>
+        <p className="text-sm text-gray-500 mt-2">{isFreePlan ? 'Generating visibility insights...' : 'Querying ChatGPT, Gemini, Claude & Perplexity...'}</p>
+        <div className="flex gap-1 mt-4">
+          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="flex border-b border-[#334155] mb-6">
+      <div className="flex border-b border-gray-200 mb-6">
         {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === tab.id
-                ? 'border-indigo-400 text-indigo-400'
-                : 'border-transparent text-[#94a3b8] hover:text-white hover:border-gray-600'
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 ${activeTab === tab.id ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            <tab.icon size={16} /> {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <VisibilityScoreCard
-            score={site.visibility_score || 0}
-            previousScore={site.previous_score || 0}
-            lastAuditAt={site.last_audit_at}
-            isFreePlan={isFreePlan}
-          />
-          <CompetitorTable
-            competitors={site.competitors || []}
-            brandName={site.brand_name}
-            mentions={latestMentions}
-          />
-          <RootCauseList
-            crawlData={site.crawl_data?.[0] || null}
-            mentions={latestMentions}
-            brandName={site.brand_name}
-            competitors={site.competitors || []}
-          />
+          <VisibilityScoreCard score={site.visibility_score || 0} previousScore={site.previous_score || 0} lastAuditAt={site.last_audit_at} isFreePlan={isFreePlan} />
+          <CompetitorTable competitors={site.competitors || []} brandName={site.brand_name} mentions={latestMentions} />
+          <RootCauseList crawlData={site.crawl_data?.[0] || null} mentions={latestMentions} brandName={site.brand_name} competitors={site.competitors || []} />
         </div>
       )}
 
       {activeTab === 'prompts' && (
         <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Active Prompts</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Active Prompts</h3>
           {site.prompts && site.prompts.length > 0 ? (
-            <ul className="space-y-3">
+            <div className="space-y-3">
               {site.prompts.map((prompt: any) => (
-                <li key={prompt.id} className="bg-[#1e293b] p-4 rounded-lg border border-[#334155] flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm">{prompt.prompt_text}</p>
-                    <span className={`text-xs ${prompt.is_active ? 'text-green-400' : 'text-gray-500'}`}>
-                      {prompt.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </li>
+                <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+                  <div><p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p><span className={`text-xs font-medium ${prompt.is_active ? 'text-emerald-600' : 'text-gray-400'}`}>{prompt.is_active ? '● Active' : '○ Inactive'}</span></div>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-[#94a3b8] text-sm">No prompts configured.</p>
+            <div className="text-center py-12 bg-white border border-gray-200 rounded-2xl">
+              <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">No prompts configured. Add one to customize audit questions.</p>
+            </div>
           )}
         </div>
       )}
 
-      {activeTab === 'audits' && (
-        <AuditTable audits={site.audits || []} websiteId={site.id} />
-      )}
+      {activeTab === 'audits' && <AuditTable audits={site.audits || []} websiteId={site.id} />}
 
       {activeTab === 'recommendations' && (
-        <RecommendationsList
-          recommendations={site.recommendations || []}
-          websiteId={site.id}
-          userId={userId}
-          githubConnected={!!site.github_token_encrypted}
-          githubRepo={site.github_repo}
-          isFreePlan={isFreePlan}
-        />
+        <RecommendationsList recommendations={site.recommendations || []} websiteId={site.id} userId={userId} githubConnected={!!site.github_token_encrypted} githubRepo={site.github_repo} isFreePlan={isFreePlan} />
       )}
     </div>
   );
