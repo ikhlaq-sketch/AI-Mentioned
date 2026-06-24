@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Sparkles } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -12,6 +12,9 @@ import RecommendationsList from './RecommendationsList';
 export default function SiteDetailTabs({ site, latestMentions, userId, userPlan = 'free' }: { site: any; latestMentions: any[]; userId: string; userPlan?: string }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(!site.last_audit_at);
+  const [prompts, setPrompts] = useState(site.prompts || []);
+  const [showAddPrompt, setShowAddPrompt] = useState(false);
+  const [newPrompt, setNewPrompt] = useState('');
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
@@ -30,6 +33,30 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
       setIsLoading(false);
     }
   }, [site.last_audit_at, router]);
+
+  const addPrompt = async () => {
+    if (!newPrompt.trim()) return;
+    const res = await fetch('/api/prompts/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ website_id: site.id, user_id: userId, prompt_text: newPrompt }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPrompts([...prompts, data]);
+      setNewPrompt('');
+      setShowAddPrompt(false);
+    }
+  };
+
+  const togglePrompt = async (id: string, isActive: boolean) => {
+    await fetch('/api/prompts/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt_id: id, is_active: !isActive }),
+    });
+    setPrompts(prompts.map((p: any) => p.id === id ? { ...p, is_active: !isActive } : p));
+  };
 
   if (isLoading) {
     return (
@@ -69,12 +96,34 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
       {activeTab === 'prompts' && (
         <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Active Prompts</h3>
-          {site.prompts && site.prompts.length > 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Active Prompts</h3>
+            <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
+              <Plus size={16} /> Add Prompt
+            </button>
+          </div>
+
+          {showAddPrompt && (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+              <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)}
+                placeholder="e.g. What are the top options for Cloud Hosting?"
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-900 text-sm mb-3 focus:outline-none focus:border-emerald-400" />
+              <div className="flex gap-2">
+                <button onClick={addPrompt} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Save</button>
+                <button onClick={() => setShowAddPrompt(false)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {prompts.length > 0 ? (
             <div className="space-y-3">
-              {site.prompts.map((prompt: any) => (
+              {prompts.map((prompt: any) => (
                 <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-                  <div><p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p><span className={`text-xs font-medium ${prompt.is_active ? 'text-emerald-600' : 'text-gray-400'}`}>{prompt.is_active ? '● Active' : '○ Inactive'}</span></div>
+                  <p className="text-gray-900 text-sm font-medium">{prompt.prompt_text}</p>
+                  <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
+                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                    {prompt.is_active ? 'Active' : 'Inactive'}
+                  </button>
                 </div>
               ))}
             </div>

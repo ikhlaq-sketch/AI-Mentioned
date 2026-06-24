@@ -1,17 +1,27 @@
-import { TrendingUp, TrendingDown, Lock, Shield } from 'lucide-react';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { TrendingUp, TrendingDown, Lock } from 'lucide-react';
 
 export default function VisibilityScoreCard({ score, previousScore, lastAuditAt, isFreePlan = false }: { score: number; previousScore: number; lastAuditAt: string | null; isFreePlan?: boolean }) {
+  const [animatedScore, setAnimatedScore] = useState(0);
   const diff = score - previousScore;
   const trend = diff >= 0;
-  const TrendIcon = trend ? TrendingUp : TrendingDown;
-  const trendColor = trend ? 'text-emerald-600' : 'text-red-500';
+  const percentage = Math.min(score, 100);
+  const circumference = 2 * Math.PI * 54; // radius=54
+  const offset = circumference - (percentage / 100) * circumference;
 
-  let ringColor = 'border-red-400';
-  let bgGlow = 'shadow-red-100';
+  let strokeColor = '#ef4444';
+  let glowColor = 'rgba(239,68,68,0.15)';
   let label = 'At Risk';
-  if (score >= 90) { ringColor = 'border-emerald-500'; bgGlow = 'shadow-emerald-100'; label = 'Dominant'; }
-  else if (score >= 70) { ringColor = 'border-emerald-400'; bgGlow = 'shadow-emerald-50'; label = 'Strong'; }
-  else if (score >= 40) { ringColor = 'border-amber-400'; bgGlow = 'shadow-amber-50'; label = 'Improving'; }
+  if (score >= 90) { strokeColor = '#10b981'; glowColor = 'rgba(16,185,129,0.2)'; label = 'Dominant'; }
+  else if (score >= 70) { strokeColor = '#10b981'; glowColor = 'rgba(16,185,129,0.15)'; label = 'Strong'; }
+  else if (score >= 40) { strokeColor = '#f59e0b'; glowColor = 'rgba(245,158,11,0.15)'; label = 'Improving'; }
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimatedScore(score), 200);
+    return () => clearTimeout(timer);
+  }, [score]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center relative shadow-sm">
@@ -21,20 +31,30 @@ export default function VisibilityScoreCard({ score, previousScore, lastAuditAt,
         </div>
       )}
 
-      <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
         {isFreePlan ? 'Estimated Visibility' : 'AI Visibility Score'}
       </p>
 
-      <div className={`inline-flex items-center justify-center w-28 h-28 rounded-full border-4 ${ringColor} mb-4 bg-white shadow-xl ${bgGlow} ${isFreePlan ? 'opacity-80' : ''}`}>
-        <span className="text-5xl font-extrabold text-gray-900">{score}</span>
+      {/* Animated Circular Progress */}
+      <div className="relative inline-flex items-center justify-center mb-4">
+        <svg width="140" height="140" className="-rotate-90">
+          <circle cx="70" cy="70" r="54" fill="none" stroke="#f1f5f9" strokeWidth="10" />
+          <circle cx="70" cy="70" r="54" fill="none" stroke={strokeColor} strokeWidth="10" strokeLinecap="round"
+            strokeDasharray={circumference} strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 1.2s ease-out', filter: `drop-shadow(0 0 8px ${glowColor})` }} />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-4xl font-extrabold text-gray-900" style={{ transition: 'all 0.5s ease' }}>{animatedScore}</span>
+          <span className="text-xs text-gray-400 font-medium">/100</span>
+        </div>
       </div>
 
       <p className="text-sm font-semibold text-gray-500 mb-2">{label}</p>
 
       {previousScore > 0 && !isFreePlan && (
         <div className="flex items-center justify-center gap-1.5 text-sm mb-1">
-          <TrendIcon size={16} className={trendColor} />
-          <span className={`font-semibold ${trendColor}`}>{Math.abs(diff)} points</span>
+          {trend ? <TrendingUp size={16} className="text-emerald-600" /> : <TrendingDown size={16} className="text-red-500" />}
+          <span className={`font-semibold ${trend ? 'text-emerald-600' : 'text-red-500'}`}>{Math.abs(diff)} points</span>
           <span className="text-gray-400">since last audit</span>
         </div>
       )}
