@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import Link from 'next/link';
 import { ArrowRight, Zap, Shield, BarChart3, Globe, CheckCircle, TrendingUp, Users, Lock, Sparkles, Star, Target, Trophy, Quote } from 'lucide-react';
-import Image from 'next/image'; // ✅ for professional profile pics
 
 const navLinks = [
   { href: '#features', label: 'Features' },
@@ -14,26 +13,25 @@ const navLinks = [
   { href: '#faq', label: 'FAQ' },
 ];
 
-// ✅ Professional testimonial data – replace with real images later
 const testimonials = [
   {
     name: 'Sarah Johnson',
     role: 'Marketing Director, TechFlow',
-    image: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=059669&color=fff&size=96',
+    image: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=059669&color=fff&size=96&format=png',
     quote: 'AIMentioned completely transformed how we think about SEO. Within 3 weeks of implementing their schema fixes, we saw a 40% increase in AI-driven traffic.',
     rating: 5,
   },
   {
     name: 'David Chen',
     role: 'CEO, GrowthBase',
-    image: 'https://ui-avatars.com/api/?name=David+Chen&background=059669&color=fff&size=96',
+    image: 'https://ui-avatars.com/api/?name=David+Chen&background=059669&color=fff&size=96&format=png',
     quote: 'The competitor gap analysis alone is worth the subscription. We discovered competitors were ranking above us in ChatGPT simply because they had FAQ schema. Fixed it in one click.',
     rating: 5,
   },
   {
     name: 'Maria Rodriguez',
     role: 'SEO Lead, AgencyPro',
-    image: 'https://ui-avatars.com/api/?name=Maria+Rodriguez&background=059669&color=fff&size=96',
+    image: 'https://ui-avatars.com/api/?name=Maria+Rodriguez&background=059669&color=fff&size=96&format=png',
     quote: 'We manage 15 client websites. AIMentioned\'s multi-site dashboard and GitHub auto-deploy saved us hours of manual work every week.',
     rating: 5,
   },
@@ -62,7 +60,6 @@ const plans = [
   },
 ];
 
-// ✅ Updated: 5 AI platforms for the hero animation
 const llmModels = ['ChatGPT', 'Gemini', 'Claude', 'Perplexity', 'Google AI Overviews'];
 
 function useCountUp(end: number, duration: number = 2000, start: boolean = true) {
@@ -99,7 +96,7 @@ function useInView(ref: React.RefObject<HTMLElement>) {
 export default function LandingPage() {
   const [modelIndex, setModelIndex] = useState(0);
   const [displayedModel, setDisplayedModel] = useState('');
-  const [fadeState, setFadeState] = useState('fade-in'); // ✅ smooth animation
+  const [fadeState, setFadeState] = useState('fade-in');
   const typedModel = useTypewriter(llmModels[modelIndex], 70, 0);
   const [user, setUser] = useState<any>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
@@ -113,8 +110,8 @@ export default function LandingPage() {
   const featuresInView = useInView(featuresRef);
   const whyInView = useInView(whyRef);
   const pricingInView = useInView(pricingRef);
+  const testimonialsInView = useInView(testimonialsRef);
 
-  // ✅ Smooth typewriter cycle with fade effect
   useEffect(() => {
     const cycleInterval = setInterval(() => {
       setFadeState('fade-out');
@@ -214,9 +211,9 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">What Our Customers Say</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">Join hundreds of businesses already dominating AI search results.</p>
         </div>
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className={`grid md:grid-cols-3 gap-8 transition-all duration-700 ${testimonialsInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           {testimonials.map((t, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-8 hover:border-emerald-200 hover:shadow-xl transition-all duration-300">
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-8 hover:border-emerald-200 hover:shadow-xl transition-all duration-300 hover:-translate-y-1" style={{ transitionDelay: `${i * 100}ms` }}>
               <div className="flex items-center gap-1 mb-4">
                 {Array.from({ length: t.rating }).map((_, star) => (
                   <Star key={star} size={16} className="text-amber-400 fill-amber-400" />
@@ -238,39 +235,188 @@ export default function LandingPage() {
 
       {/* ==================== THE AI SEARCH BLIND SPOT ==================== */}
       <section ref={featuresRef} id="features" className="max-w-7xl mx-auto px-4 py-20 bg-gray-50">
-        {/* ... keep existing features section ... */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
+            <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> The Problem <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
+          </span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">
+            Your Brand Is <span className="relative inline-block">Invisible<span className="absolute bottom-1 left-0 w-full h-3 bg-emerald-200 -z-10 rounded-full" /></span> to AI
+          </h2>
+          <p className="text-gray-500 mt-4 max-w-2xl mx-auto">While you're focused on Google rankings, your competitors are capturing AI-driven recommendations.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            { icon: <Zap className="w-8 h-8 text-emerald-500" />, count: count40, suffix: '%', text: 'of searches now happen on AI platforms and bypass Google entirely.' },
+            { icon: <Shield className="w-8 h-8 text-emerald-500" />, count: count89, suffix: '%', text: 'of your competitors are already optimizing for AI visibility.' },
+            { icon: <BarChart3 className="w-8 h-8 text-emerald-500" />, count: 0, suffix: '%', text: 'of businesses know if AI recommends them or their competitors.' },
+          ].map((item, i) => (
+            <div key={i} className="group bg-white border border-gray-100 rounded-2xl p-8 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-50 transition-all duration-500 hover:-translate-y-1">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
+              <p className="text-5xl font-extrabold text-[#0f172a] mb-2">{featuresInView ? item.count : 0}{item.suffix}</p>
+              <p className="text-gray-500 leading-relaxed">{item.text}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ==================== HOW IT WORKS ==================== */}
       <section className="bg-white py-20 relative overflow-hidden">
-        {/* ... keep existing how it works section ... */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-50 rounded-full blur-3xl opacity-50" />
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
+              <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> The Process <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">
+              From invisible to <span className="text-emerald-600">recommended</span> in 4 steps
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-4 gap-8">
+            {[
+              { step: '1', title: 'Connect', desc: '60‑second website setup', icon: <Globe size={24} /> },
+              { step: '2', title: 'Scan', desc: 'AI scans ChatGPT, Gemini, Claude, Perplexity', icon: <SearchIcon size={24} /> },
+              { step: '3', title: 'Analyse', desc: 'Visibility score & competitor gaps', icon: <Target size={24} /> },
+              { step: '4', title: 'Fix', desc: 'Code fixes deployed via GitHub PR', icon: <Trophy size={24} /> },
+            ].map((item, i) => (
+              <div key={i} className="relative text-center group">
+                {i < 3 && <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-emerald-300 to-emerald-100" />}
+                <div className="relative z-10 w-16 h-16 mx-auto mb-4 rounded-2xl bg-white border-2 border-emerald-200 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 group-hover:shadow-xl group-hover:shadow-emerald-200 transition-all duration-300">
+                  {item.icon}
+                </div>
+                <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Step {item.step}</span>
+                <h3 className="text-[#0f172a] font-semibold text-lg mt-1">{item.title}</h3>
+                <p className="text-gray-500 text-sm mt-2">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ==================== WHY AIMentioned ==================== */}
       <section ref={whyRef} className="max-w-7xl mx-auto px-4 py-20 bg-gray-50">
-        {/* ... keep existing comparison table ... */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
+            <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> The Comparison <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
+          </span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">Why <span className="text-emerald-600">AIMentioned</span>?</h2>
+          <p className="text-gray-500 mt-4 max-w-2xl mx-auto">See how we stack up against the competition. We're the only platform that fixes your AI visibility automatically.</p>
+        </div>
+        <div className={`overflow-x-auto rounded-2xl border border-gray-200 shadow-sm transition-all duration-700 ${whyInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-emerald-50">
+                <th className="text-left p-4 text-gray-700 font-semibold">Feature</th>
+                <th className="p-4 text-emerald-600 font-semibold">AIMentioned <Star size={12} className="inline text-amber-400" /></th>
+                <th className="p-4 text-gray-400">OtterlyAI</th>
+                <th className="p-4 text-gray-400">Peec AI</th>
+                <th className="p-4 text-gray-400">Scrunch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['AI Monitoring', '✅', '✅', '✅', '✅'],
+                ['Fix Recommendations', '✅', 'Partial', '❌', '✅'],
+                ['Copy‑Paste Fixes', '✅', '❌', '❌', '✅'],
+                ['GitHub PR Auto‑Fix', '✅', '❌', '❌', '❌'],
+                ['Price (100 queries)', '$49', '$189+', '$89+', '$250+'],
+                ['5‑brand agency', '$99', '$945+', '$445+', '$500+'],
+              ].map((row, i) => (
+                <tr key={i} className="border-t border-gray-100 hover:bg-emerald-50/30 transition">
+                  <td className="p-4 text-gray-700 font-medium">{row[0]}</td>
+                  <td className="p-4 text-center text-emerald-600 font-semibold">{row[1]}</td>
+                  <td className="p-4 text-center text-gray-400">{row[2]}</td>
+                  <td className="p-4 text-center text-gray-400">{row[3]}</td>
+                  <td className="p-4 text-center text-gray-400">{row[4]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* ==================== PRICING ==================== */}
       <section ref={pricingRef} id="pricing" className="bg-white py-20">
-        {/* ... keep existing pricing section ... */}
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
+              <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> The Investment <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">Simple, profitable pricing</h2>
+            <p className="text-gray-500 mt-4 max-w-2xl mx-auto">All plans include AI monitoring, fix recommendations, and GitHub integration. Start free, upgrade when ready.</p>
+          </div>
+          <div className={`grid md:grid-cols-2 lg:grid-cols-4 gap-6 transition-all duration-700 ${pricingInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            {plans.map((plan, idx) => (
+              <div key={plan.name}
+                className={`relative bg-white border rounded-2xl p-6 flex flex-col transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${plan.highlighted ? 'border-emerald-400 shadow-xl shadow-emerald-100 ring-2 ring-emerald-400 scale-105' : 'border-gray-200 hover:border-emerald-200'}`}
+                style={{ transitionDelay: `${idx * 100}ms` }}>
+                {plan.highlighted && <span className="absolute -top-3 right-4 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</span>}
+                <h3 className="text-xl font-bold text-[#0f172a]">{plan.name}</h3>
+                <div className="mt-2 mb-4"><span className="text-4xl font-bold text-[#0f172a]">{plan.price}</span><span className="text-gray-400">/month</span></div>
+                <p className="text-sm text-gray-500 mb-4">{plan.sites} site{plan.sites > 1 ? 's' : ''} · {plan.queries.toLocaleString()} queries</p>
+                <ul className="space-y-2.5 mb-6 flex-1">{plan.features.map((feat, i) => (<li key={i} className="flex items-start gap-2 text-sm text-gray-600"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />{feat}</li>))}</ul>
+                <button onClick={() => handleCheckout(plan.variantId)} disabled={loadingPlan === plan.variantId}
+                  className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${plan.highlighted ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200' : 'border-2 border-gray-200 hover:border-emerald-300 text-gray-700'} ${loadingPlan === plan.variantId ? 'opacity-50 cursor-wait' : ''}`}>
+                  {loadingPlan === plan.variantId ? 'Redirecting...' : 'Get Started'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ==================== FAQ ==================== */}
-      <section id="faq" className="max-w-4xl mx-auto px-4 py-20">
-        {/* ... keep existing FAQ section ... */}
+      <section id="faq" className="max-w-4xl mx-auto px-4 py-20 bg-gray-50">
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm uppercase tracking-wider mb-3">
+            <span className="w-8 h-0.5 bg-emerald-400 rounded-full" /> Got Questions? <span className="w-8 h-0.5 bg-emerald-400 rounded-full" />
+          </span>
+          <h2 className="text-3xl md:text-5xl font-bold text-[#0f172a] mt-2">Frequently Asked Questions</h2>
+        </div>
+        <div className="space-y-3">
+          {[
+            { q: 'What is GEO and AEO?', a: 'Generative Engine Optimization and Answer Engine Optimization are techniques to improve how AI models reference your brand. Think SEO, but for ChatGPT instead of Google.' },
+            { q: 'Which AI models do you monitor?', a: 'We monitor ChatGPT, Gemini, Claude, and Perplexity — covering 99% of measurable AI referrals. Scale and Agency plans include additional models.' },
+            { q: 'How does GitHub integration work?', a: 'Connect your repository via OAuth. We create Pull Requests with ready-to-paste schema code that improves your AI rankings.' },
+            { q: 'What happens when I reach my query limit?', a: 'Free and Starter plans pause until reset. Growth, Scale, and Agency plans continue at $0.05 per additional query.' },
+            { q: 'How long until I see results?', a: 'Most users see AI visibility improvements within 2-4 weeks after implementing our schema recommendations.' },
+            { q: 'Do you offer refunds?', a: 'Yes, we offer a 14-day money-back guarantee on all paid plans. No questions asked.' },
+          ].map((item, i) => (
+            <details key={i} className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 transition-all duration-300">
+              <summary className="cursor-pointer text-[#0f172a] font-semibold list-none flex justify-between items-center">
+                {item.q}<span className="text-emerald-500 group-open:rotate-180 transition-transform duration-300 text-lg">+</span>
+              </summary>
+              <p className="text-gray-500 mt-3 leading-relaxed">{item.a}</p>
+            </details>
+          ))}
+        </div>
       </section>
 
       {/* ==================== FOOTER ==================== */}
       <footer className="border-t border-gray-200 bg-white py-12">
-        {/* ... keep existing footer ... */}
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
+            <div><h3 className="text-lg font-bold text-emerald-600 mb-3">AIMentioned</h3><p className="text-sm text-gray-500">AI Search Visibility Platform. Track and improve your brand presence across ChatGPT, Gemini, Claude, and Perplexity.</p></div>
+            <div><h3 className="text-sm font-semibold text-[#0f172a] mb-3">Legal</h3><div className="space-y-2 text-sm"><Link href="/privacy" className="block text-gray-500 hover:text-emerald-600 transition">Privacy Policy</Link><Link href="/terms" className="block text-gray-500 hover:text-emerald-600 transition">Terms of Service</Link></div></div>
+            <div><h3 className="text-sm font-semibold text-[#0f172a] mb-3">Contact</h3><div className="space-y-2 text-sm"><a href="mailto:AK.Systems@gmail.com" className="block text-gray-500 hover:text-emerald-600 transition">AK.Systems@gmail.com</a></div></div>
+          </div>
+          <div className="border-t border-gray-200 pt-6 text-center text-sm text-gray-400"><p>© {new Date().getFullYear()} AIMentioned. All rights reserved.</p></div>
+        </div>
       </footer>
+
+      {/* ✅ Inline keyframes for float animation */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+      `}</style>
     </div>
   );
 }
 
-// Missing Search icon component
-function Search(props: any) {
+// ✅ Inline Search icon component
+function SearchIcon(props: any) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
