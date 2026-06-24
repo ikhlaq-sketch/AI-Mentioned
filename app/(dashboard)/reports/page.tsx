@@ -1,7 +1,9 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { FileText, Calendar, Globe, Download } from 'lucide-react';
 
 export default function ReportsPage() {
   const [websiteId, setWebsiteId] = useState('');
@@ -10,16 +12,12 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [sites, setSites] = useState<any[]>([]);
 
-  // ✅ Fixed: use useEffect for async side effect
   useEffect(() => {
     const fetchSites = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase
-          .from('websites')
-          .select('id, domain')
-          .eq('user_id', user.id);
+        const { data } = await supabase.from('websites').select('id, domain, brand_name').eq('user_id', user.id);
         setSites(data || []);
       }
     };
@@ -41,44 +39,45 @@ export default function ReportsPage() {
       a.href = url;
       a.download = `aimentioned-report-${websiteId}.pdf`;
       a.click();
-    } catch (err) {
-      alert('Failed to generate report');
-    } finally {
-      setLoading(false);
-    }
+    } catch { alert('Failed to generate report'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-white mb-6">Download Reports</h1>
-      <div className="bg-[#1e293b] p-6 rounded-xl border border-[#334155] max-w-lg">
-        <div className="space-y-4">
+    <div className="p-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Download Reports</h1>
+        <p className="text-sm text-gray-500 mt-1">Generate branded PDF reports for your websites.</p>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-xl shadow-sm">
+        <div className="space-y-5">
           <div>
-            <label className="text-sm text-[#94a3b8]">Website</label>
+            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-1.5"><Globe size={16} className="text-emerald-500" />Website</label>
             <select value={websiteId} onChange={(e) => setWebsiteId(e.target.value)}
-              className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1">
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 transition-all">
               <option value="">Select a site</option>
-              {sites.map((site: any) => (
-                <option key={site.id} value={site.id}>{site.domain}</option>
-              ))}
+              {sites.map((site: any) => <option key={site.id} value={site.id}>{site.brand_name || site.domain} ({site.domain})</option>)}
             </select>
           </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-sm text-[#94a3b8]">From</label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-1.5"><Calendar size={16} className="text-emerald-500" />From</label>
               <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1" />
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 transition-all" />
             </div>
-            <div className="flex-1">
-              <label className="text-sm text-[#94a3b8]">To</label>
+            <div>
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-1.5"><Calendar size={16} className="text-emerald-500" />To</label>
               <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-2 text-white mt-1" />
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 transition-all" />
             </div>
           </div>
-          <button onClick={generateReport} disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-lg flex items-center gap-2">
-            {loading && <LoadingSpinner size={16} />}
-            Generate PDF
+
+          <button onClick={generateReport} disabled={loading || !websiteId || !dateFrom || !dateTo}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 shadow-md shadow-emerald-200 transition-all">
+            {loading ? <LoadingSpinner size={18} /> : <Download size={18} />}
+            {loading ? 'Generating...' : 'Generate PDF Report'}
           </button>
         </div>
       </div>
