@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -32,37 +32,36 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
 
-  // Fetch prompts and their latest scoresuseEffect(() => {
-  async function fetchPromptsWithScores() {
-    const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      // ✅ Fetch ALL scores in one call
-      const scoreRes = await fetch(`/api/prompts/score?website_id=${site.id}&all=true`);
-      if (scoreRes.ok) {
-        const scoreData = await scoreRes.json();
-        const scores: Record<string, number> = {};
-        const lastUsed: Record<string, string> = {};
-        if (scoreData.prompts) {
-          for (const [prompt, info] of Object.entries(scoreData.prompts)) {
-            scores[prompt] = (info as any).score || 0;
-            lastUsed[prompt] = (info as any).lastUsed || '';
+  // Fetch prompts and their latest scores
+  useEffect(() => {
+    async function fetchPromptsWithScores() {
+      const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const scoreRes = await fetch(`/api/prompts/score?website_id=${site.id}&all=true`);
+        if (scoreRes.ok) {
+          const scoreData = await scoreRes.json();
+          const scores: Record<string, number> = {};
+          const lastUsed: Record<string, string> = {};
+          if (scoreData.prompts) {
+            for (const [prompt, info] of Object.entries(scoreData.prompts)) {
+              scores[prompt] = (info as any).score || 0;
+              lastUsed[prompt] = (info as any).lastUsed || '';
+            }
           }
+          setPromptScores(scores);
+          setPromptLastUsed(lastUsed);
+          const sorted = [...data].sort((a, b) => {
+            const aTime = lastUsed[a.prompt_text] ? new Date(lastUsed[a.prompt_text]).getTime() : 0;
+            const bTime = lastUsed[b.prompt_text] ? new Date(lastUsed[b.prompt_text]).getTime() : 0;
+            return bTime - aTime;
+          });
+          setPrompts(sorted);
         }
-        setPromptScores(scores);
-        setPromptLastUsed(lastUsed);
-        // Sort by most recently used
-        const sorted = [...data].sort((a, b) => {
-          const aTime = lastUsed[a.prompt_text] ? new Date(lastUsed[a.prompt_text]).getTime() : 0;
-          const bTime = lastUsed[b.prompt_text] ? new Date(lastUsed[b.prompt_text]).getTime() : 0;
-          return bTime - aTime;
-        });
-        setPrompts(sorted);
       }
     }
-  }
-  fetchPromptsWithScores();
-}, [site.id]);
+    fetchPromptsWithScores();
+  }, [site.id]);
 
   useEffect(() => {
     if (!site.last_audit_at) {
@@ -137,33 +136,21 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         <div className="space-y-6">
           <VisibilityScoreCard score={displayScore} previousScore={site.previous_score || 0} lastAuditAt={site.last_audit_at} isFreePlan={isFreePlan} />
 
-          {/* ✅ Recent Prompts Section */}
           {prompts.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Prompts</h3>
-                <button onClick={() => setActiveTab('prompts')} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                  Manage prompts →
-                </button>
+                <button onClick={() => setActiveTab('prompts')} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Manage prompts →</button>
               </div>
               <div className="space-y-1.5">
                 {prompts.slice(0, 5).map((prompt: any) => {
                   const isSelected = selectedPrompt === prompt.prompt_text;
                   const promptScore = promptScores[prompt.prompt_text];
                   return (
-                    <div
-                      key={prompt.id}
-                      onClick={() => handlePromptClick(prompt)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
-                        isSelected
-                          ? 'bg-emerald-50 border-emerald-300 shadow-sm'
-                          : 'bg-gray-50 border-transparent hover:bg-white hover:border-gray-200'
-                      }`}
-                    >
+                    <div key={prompt.id} onClick={() => handlePromptClick(prompt)}
+                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-gray-50 border-transparent hover:bg-white hover:border-gray-200'}`}>
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          promptLastUsed[prompt.prompt_text] ? 'bg-emerald-500' : 'bg-gray-300'
-                        }`} />
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${promptLastUsed[prompt.prompt_text] ? 'bg-emerald-500' : 'bg-gray-300'}`} />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm text-gray-700 truncate">{prompt.prompt_text}</p>
                           {promptLastUsed[prompt.prompt_text] && (
@@ -175,18 +162,11 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
                         </div>
                       </div>
                       <div className="flex items-center gap-3 ml-3 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          (prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                        }`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                           {(prompts.indexOf(prompt) < 4) ? 'Weekly' : 'Daily'}
                         </span>
                         {promptScore !== undefined && (
-                          <span className={`text-sm font-bold min-w-[3ch] text-right ${
-                            promptScore >= 70 ? 'text-emerald-600' :
-                            promptScore >= 40 ? 'text-amber-500' : 'text-red-500'
-                          }`}>
-                            {promptScore}%
-                          </span>
+                          <span className={`text-sm font-bold min-w-[3ch] text-right ${promptScore >= 70 ? 'text-emerald-600' : promptScore >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{promptScore}%</span>
                         )}
                       </div>
                     </div>
@@ -194,9 +174,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
                 })}
               </div>
               {prompts.length > 5 && (
-                <p className="text-xs text-gray-400 text-center mt-3">
-                  +{prompts.length - 5} more prompts — <button onClick={() => setActiveTab('prompts')} className="text-emerald-600 hover:text-emerald-700">view all</button>
-                </p>
+                <p className="text-xs text-gray-400 text-center mt-3">+{prompts.length - 5} more prompts — <button onClick={() => setActiveTab('prompts')} className="text-emerald-600 hover:text-emerald-700">view all</button></p>
               )}
             </div>
           )}
@@ -217,19 +195,15 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
               <Plus size={16} /> Add Prompt
             </button>
           </div>
-
           {showAddPrompt && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-              <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)}
-                placeholder="e.g. What are the top options for Cloud Hosting?"
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-900 text-sm mb-3 focus:outline-none focus:border-emerald-400" />
+              <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)} placeholder="e.g. What are the top options for Cloud Hosting?" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-900 text-sm mb-3 focus:outline-none focus:border-emerald-400" />
               <div className="flex gap-2">
                 <button onClick={addPrompt} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Save</button>
                 <button onClick={() => setShowAddPrompt(false)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">Cancel</button>
               </div>
             </div>
           )}
-
           {prompts.length > 0 ? (
             <div className="space-y-2">
               {prompts.map((prompt: any) => (
@@ -238,22 +212,15 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-900 text-sm font-medium truncate">{prompt.prompt_text}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {(prompts.indexOf(prompt) < 4) ? '📅 Weekly' : '🔄 Daily'}
-                        </span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
-                          {prompt.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{(prompts.indexOf(prompt) < 4) ? '📅 Weekly' : '🔄 Daily'}</span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>{prompt.is_active ? 'Active' : 'Inactive'}</span>
                         {promptScores[prompt.prompt_text] !== undefined && (
-                          <span className={`text-xs font-bold ${promptScores[prompt.prompt_text] >= 70 ? 'text-emerald-600' : promptScores[prompt.prompt_text] >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {promptScores[prompt.prompt_text]}%
-                          </span>
+                          <span className={`text-xs font-bold ${promptScores[prompt.prompt_text] >= 70 ? 'text-emerald-600' : promptScores[prompt.prompt_text] >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{promptScores[prompt.prompt_text]}%</span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-3">
-                      <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
-                        className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>On/Off</button>
+                      <button onClick={() => togglePrompt(prompt.id, prompt.is_active)} className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>On/Off</button>
                       <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }} className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
                       <button onClick={() => deletePrompt(prompt.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
