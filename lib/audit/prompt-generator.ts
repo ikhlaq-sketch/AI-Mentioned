@@ -1,19 +1,28 @@
 import { callOpenRouter } from './query-engine';
 
 export async function generatePromptPortfolio(category: string, brandName: string): Promise<string[]> {
-  const prompt = `You are an SEO and AI visibility expert. Generate exactly 13 high-search-volume queries that potential customers would ask AI chatbots about "${category}" related to "${brandName}".
+  const prompt = `You are an SEO and AI search visibility expert. Generate exactly 13 natural search queries that real users type into AI assistants like ChatGPT, Gemini, and Perplexity when researching "${category}".
 
 CRITICAL RULES:
-- Return ONLY a JSON array of 13 strings. No markdown, no explanation.
-- First 4 queries: High-intent buying queries (best, top, compare, vs)
-- Next 9 queries: Diverse search intents (affordable, for small business, features, reviews, alternatives, beginners, enterprise, trending, most popular)
-- Each query must be a natural question someone would actually type
-- Make each query unique and cover different angles
-- Include "${brandName}" or "${category}" naturally in each query
+- Sound exactly like a real human typed them — natural conversational language
+- Do NOT include the brand name "${brandName}" in any query — users search for categories not specific brands
+- Do NOT repeat the same phrasing across queries
+- Cover these 13 different search intents in this exact order:
+  1. Best overall: general recommendation query
+  2. Comparison: versus or alternative query  
+  3. Top providers: listing the top options
+  4. Specific use case: for a specific technology or framework
+  5. Budget: affordable or cost-effective options
+  6. Small business: options for small teams or businesses
+  7. Features: specific features users care about
+  8. Reviews: real user experiences and opinions
+  9. Alternatives: what else exists in this space
+  10. Beginners: easiest or simplest options for newcomers
+  11. Enterprise: options for large organizations
+  12. Trending: what is popular or new right now
+  13. Problem-solving: solving a specific pain point in this category
 
-Example format: ["What are the top options for Cloud Hosting?","Best cloud hosting for startups","..."]
-
-Generate the 13 queries now:`;
+Return ONLY a raw JSON array of exactly 13 strings. Zero markdown. Zero explanation. Zero code fences. Just the array.`;
 
   const response = await callOpenRouter(
     'google/gemini-2.5-flash-lite',
