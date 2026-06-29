@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, TrendingUp } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, TrendingUp, Clock } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -14,12 +14,14 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [isLoading, setIsLoading] = useState(!site.last_audit_at);
   const [prompts, setPrompts] = useState<any[]>([]);
   const [promptScores, setPromptScores] = useState<Record<string, number>>({});
+  const [promptLastUsed, setPromptLastUsed] = useState<Record<string, string>>({});
   const [showAddPrompt, setShowAddPrompt] = useState(false);
   const [newPrompt, setNewPrompt] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [displayScore, setDisplayScore] = useState(site.visibility_score || 0);
   const [displayMentions, setDisplayMentions] = useState(latestMentions);
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
@@ -36,17 +38,28 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
       const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        setPrompts(data);
-        // Fetch scores for all prompts
+        // Fetch score + last used for each prompt
         const scores: Record<string, number> = {};
+        const lastUsed: Record<string, string> = {};
         for (const p of data) {
           const scoreRes = await fetch(`/api/prompts/score?website_id=${site.id}&prompt_text=${encodeURIComponent(p.prompt_text)}`);
           if (scoreRes.ok) {
             const scoreData = await scoreRes.json();
             scores[p.prompt_text] = scoreData.score || 0;
+            if (scoreData.mentions && scoreData.mentions.length > 0) {
+              lastUsed[p.prompt_text] = scoreData.mentions[0].created_at;
+            }
           }
         }
         setPromptScores(scores);
+        setPromptLastUsed(lastUsed);
+        // Sort: most recently used first, then by original order
+        const sorted = [...data].sort((a, b) => {
+          const aTime = lastUsed[a.prompt_text] ? new Date(lastUsed[a.prompt_text]).getTime() : 0;
+          const bTime = lastUsed[b.prompt_text] ? new Date(lastUsed[b.prompt_text]).getTime() : 0;
+          return bTime - aTime;
+        });
+        setPrompts(sorted);
       }
     }
     fetchPromptsWithScores();
@@ -62,6 +75,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   }, [site.last_audit_at, router]);
 
   const handlePromptClick = async (prompt: any) => {
+    setSelectedPrompt(prompt.prompt_text);
     const res = await fetch(`/api/prompts/score?website_id=${site.id}&prompt_text=${encodeURIComponent(prompt.prompt_text)}`);
     if (res.ok) {
       const data = await res.json();
@@ -133,29 +147,52 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
                   Manage prompts →
                 </button>
               </div>
-              <div className="space-y-2">
-                {prompts.slice(0, 5).map((prompt: any, index: number) => (
-                  <div
-                    key={prompt.id}
-                    onClick={() => handlePromptClick(prompt)}
-                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-emerald-50 cursor-pointer transition-colors border border-transparent hover:border-emerald-200"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${index < 4 ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                      <p className="text-sm text-gray-700 truncate">{prompt.prompt_text}</p>
-                    </div>
-                    <div className="flex items-center gap-3 ml-3 shrink-0">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${index < 4 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                        {index < 4 ? 'Weekly' : 'Daily'}
-                      </span>
-                      {promptScores[prompt.prompt_text] !== undefined && (
-                        <span className={`text-sm font-bold ${promptScores[prompt.prompt_text] >= 70 ? 'text-emerald-600' : promptScores[prompt.prompt_text] >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
-                          {promptScores[prompt.prompt_text]}%
+              <div className="space-y-1.5">
+                {prompts.slice(0, 5).map((prompt: any) => {
+                  const isSelected = selectedPrompt === prompt.prompt_text;
+                  const promptScore = promptScores[prompt.prompt_text];
+                  return (
+                    <div
+                      key={prompt.id}
+                      onClick={() => handlePromptClick(prompt)}
+                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
+                        isSelected
+                          ? 'bg-emerald-50 border-emerald-300 shadow-sm'
+                          : 'bg-gray-50 border-transparent hover:bg-white hover:border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          promptLastUsed[prompt.prompt_text] ? 'bg-emerald-500' : 'bg-gray-300'
+                        }`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-gray-700 truncate">{prompt.prompt_text}</p>
+                          {promptLastUsed[prompt.prompt_text] && (
+                            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                              <Clock size={10} />
+                              {new Date(promptLastUsed[prompt.prompt_text]).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 ml-3 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          (prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {(prompts.indexOf(prompt) < 4) ? 'Weekly' : 'Daily'}
                         </span>
-                      )}
+                        {promptScore !== undefined && (
+                          <span className={`text-sm font-bold min-w-[3ch] text-right ${
+                            promptScore >= 70 ? 'text-emerald-600' :
+                            promptScore >= 40 ? 'text-amber-500' : 'text-red-500'
+                          }`}>
+                            {promptScore}%
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {prompts.length > 5 && (
                 <p className="text-xs text-gray-400 text-center mt-3">
@@ -196,18 +233,23 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
           {prompts.length > 0 ? (
             <div className="space-y-2">
-              {prompts.map((prompt: any, index: number) => (
+              {prompts.map((prompt: any) => (
                 <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-900 text-sm font-medium truncate">{prompt.prompt_text}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${index < 4 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {index < 4 ? '📅 Weekly' : '🔄 Daily'}
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {(prompts.indexOf(prompt) < 4) ? '📅 Weekly' : '🔄 Daily'}
                         </span>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                           {prompt.is_active ? 'Active' : 'Inactive'}
                         </span>
+                        {promptScores[prompt.prompt_text] !== undefined && (
+                          <span className={`text-xs font-bold ${promptScores[prompt.prompt_text] >= 70 ? 'text-emerald-600' : promptScores[prompt.prompt_text] >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+                            {promptScores[prompt.prompt_text]}%
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-3">

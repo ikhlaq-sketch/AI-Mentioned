@@ -13,20 +13,37 @@ export async function GET(req: NextRequest) {
   const promptText = req.nextUrl.searchParams.get('prompt_text');
   if (!websiteId || !promptText) return NextResponse.json({ error: 'Missing params' }, { status: 400 });
 
-  // Find the latest audit that used this prompt
-  const { data: audit } = await supabase
-    .from('audits')
-    .select('id, visibility_score')
+  // Find audits that used this exact prompt (mentions have prompt_text field)
+  const { data: mentions } = await supabase
+    .from('mentions')
+    .select('audit_id')
     .eq('website_id', websiteId)
+    .eq('prompt_text', promptText)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
 
-  let mentions: any[] = [];
-  if (audit) {
-    const { data } = await supabase.from('mentions').select('*').eq('audit_id', audit.id);
-    mentions = data || [];
+  let score = 0;
+  let allMentions: any[] = [];
+
+  if (mentions && mentions.length > 0) {
+    const auditId = mentions[0].audit_id;
+
+    // Get the audit score
+    const { data: audit } = await supabase
+      .from('audits')
+      .select('visibility_score')
+      .eq('id', auditId)
+      .single();
+
+    score = audit?.visibility_score || 0;
+
+    // Get all mentions for this audit
+    const { data: mentionData } = await supabase
+      .from('mentions')
+      .select('*')
+      .eq('audit_id', auditId);
+    allMentions = mentionData || [];
   }
 
-  return NextResponse.json({ score: audit?.visibility_score || 0, mentions });
+  return NextResponse.json({ score, mentions: allMentions });
 }
