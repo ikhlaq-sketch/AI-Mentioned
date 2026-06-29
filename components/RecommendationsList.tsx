@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { GitPullRequest, CheckCircle, ArrowUpCircle, X, Shield, Zap, Eye, Unlink, Code, ChevronDown, Copy, Check, Lock, Lightbulb } from 'lucide-react';
+import { GitPullRequest, CheckCircle, X, Shield, Zap, Eye, Unlink, Code, ChevronDown, Copy, Check, Lightbulb } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function RecommendationsList({
@@ -19,15 +19,26 @@ export default function RecommendationsList({
   const [disconnecting, setDisconnecting] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [recCount, setRecCount] = useState(recommendations.length);
 
   useEffect(() => {
     if (searchParams.get('select_repo') === 'true' && githubConnected) { setShowRepoSelect(true); fetchRepos(); }
   }, [searchParams, githubConnected]);
 
+  // Fetch recommendation count for free users
+  useEffect(() => {
+    if (isFreePlan && websiteId) {
+      fetch(`/api/recommendations/count?website_id=${websiteId}`)
+        .then(r => r.json())
+        .then(data => { if (data.count) setRecCount(data.count); })
+        .catch(() => {});
+    }
+  }, [isFreePlan, websiteId]);
+
   const fetchRepos = async () => { setLoadingRepos(true); try { const res = await fetch(`/api/github/repos?website_id=${websiteId}`); const data = await res.json(); if (Array.isArray(data)) setRepos(data); } catch {} setLoadingRepos(false); };
   const handleConnect = () => { window.location.href = `/api/github/connect?website_id=${websiteId}`; };
   const handleSelectRepo = async () => { if (!selectedRepo) return; const selected = repos.find(r => r.name === selectedRepo); await fetch('/api/github/save-repo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: websiteId, repo: selectedRepo, branch: selected?.default_branch || 'main' }) }); setShowRepoSelect(false); window.location.href = window.location.pathname; };
-  const handlePushAll = async () => { if (!githubRepo) { alert('Please select a repository first.'); return; } setPushingAll(true); try { const res = await fetch('/api/github/push-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: websiteId }) }); const data = await res.json(); if (data.pr_url) { window.open(data.pr_url, '_blank'); alert('✅ Pull Request created!'); } else alert(data.error || 'Failed'); } catch (err: any) { alert(err.message); } finally { setPushingAll(false); } };
+  const handlePushAll = async () => { if (!githubRepo) { alert('Select a repository first.'); return; } setPushingAll(true); try { const res = await fetch('/api/github/push-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: websiteId }) }); const data = await res.json(); if (data.pr_url) { window.open(data.pr_url, '_blank'); alert('✅ Pull Request created!'); } else alert(data.error || 'Failed'); } catch (err: any) { alert(err.message); } finally { setPushingAll(false); } };
   const handleDisconnect = async () => { setDisconnecting(true); await fetch('/api/github/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: websiteId }) }); window.location.href = window.location.pathname; };
   const copyFixCode = (code: string, id: string) => { navigator.clipboard.writeText(code); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
 
@@ -74,10 +85,11 @@ export default function RecommendationsList({
         </div>
       )}
 
-      {isFreePlan && recommendations.length > 0 && (
+      {/* ✅ Free Plan — Always show upgrade card (even with 0 recs) */}
+      {isFreePlan && (
         <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-200 rounded-2xl p-6 text-center">
           <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4"><Eye className="w-7 h-7 text-purple-600" /></div>
-          <h3 className="text-gray-900 font-bold text-lg mb-2">{recommendations.length} AI Visibility Fix{recommendations.length !== 1 ? 'es' : ''} Detected</h3>
+          <h3 className="text-gray-900 font-bold text-lg mb-2">{recCount > 0 ? `${recCount} AI Visibility Fix${recCount !== 1 ? 'es' : ''} Detected` : 'AI Visibility Fixes Available'}</h3>
           <p className="text-sm text-gray-500 mb-2">Ready-to-paste schema code to rank higher in:</p>
           <div className="flex flex-wrap justify-center gap-2 mb-4">
             <span className="text-xs bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full font-medium">ChatGPT</span>
