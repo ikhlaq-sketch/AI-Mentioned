@@ -28,29 +28,38 @@ export default function AddSiteModal() {
     setCompetitors(updated);
   };
 
-  const pollAuditStatus = async (siteId: string, maxAttempts = 20) => {
+  const pollAuditStatus = async (siteId: string, maxAttempts = 25) => {
     for (let i = 0; i < maxAttempts; i++) {
-      const progress = Math.min(Math.round((i / maxAttempts) * 100), 92);
+      const progress = Math.min(Math.round((i / maxAttempts) * 100), 90);
       setAuditProgress(progress);
 
       if (progress < 20) setAuditMessage('Crawling website data...');
       else if (progress < 45) setAuditMessage('Generating AI prompts...');
-      else if (progress < 70) setAuditMessage('Querying ChatGPT, Gemini & Claude...');
-      else if (progress < 88) setAuditMessage('Calculating visibility score...');
+      else if (progress < 65) setAuditMessage('Querying ChatGPT, Gemini & Claude...');
+      else if (progress < 80) setAuditMessage('Calculating visibility score...');
       else setAuditMessage('Generating recommendations...');
 
       try {
         const supabase = createClient();
-        const { data } = await supabase.from('websites').select('last_audit_at, visibility_score').eq('id', siteId).single();
-        if (data?.last_audit_at) {
-          setAuditProgress(100);
-          setAuditMessage('Analysis complete! Redirecting...');
-          await new Promise(r => setTimeout(r, 1000));
-          return true;
+        const { data: site } = await supabase.from('websites').select('last_audit_at, visibility_score').eq('id', siteId).single();
+        
+        // ✅ Check if both audit AND recommendations are ready
+        if (site?.last_audit_at) {
+          const { data: recs } = await supabase.from('recommendations').select('id').eq('website_id', siteId).limit(1);
+          if (recs && recs.length > 0) {
+            setAuditProgress(100);
+            setAuditMessage('Everything is ready! Redirecting...');
+            await new Promise(r => setTimeout(r, 1000));
+            return true;
+          }
         }
       } catch {}
       await new Promise(r => setTimeout(r, 2000));
     }
+    // Fallback: return true after max attempts even if not fully ready
+    setAuditProgress(100);
+    setAuditMessage('Done! Redirecting...');
+    await new Promise(r => setTimeout(r, 800));
     return true;
   };
 
@@ -89,7 +98,7 @@ export default function AddSiteModal() {
       fetch('/api/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: site.id }) });
       fetch('/api/audit/baseline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website_id: site.id }) });
 
-      // Show progress and poll
+      // Show progress and poll until everything is ready
       setAuditProgress(3);
       setAuditMessage('Starting analysis...');
       await pollAuditStatus(site.id);
@@ -137,7 +146,7 @@ export default function AddSiteModal() {
                   )}
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  {auditProgress === 100 ? 'Analysis Complete!' : 'Setting Up Your Site'}
+                  {auditProgress === 100 ? 'Everything Ready!' : 'Setting Up Your Site'}
                 </h2>
                 <p className="text-sm text-gray-500 mb-6">{auditMessage}</p>
 
@@ -174,24 +183,10 @@ export default function AddSiteModal() {
 
                   {step === 1 && (
                     <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Website URL</label>
-                        <div className="relative mt-1">
-                          <Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="example.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Brand Name</label>
-                        <input type="text" value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="My Company" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Category</label>
-                        <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. CRM Software, Dental Services" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
-                      </div>
-                      <button disabled={!url || !brandName || !category} onClick={() => setStep(2)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                        Continue <ChevronRight size={16} />
-                      </button>
+                      <div><label className="text-sm font-medium text-gray-700">Website URL</label><div className="relative mt-1"><Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="example.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" /></div></div>
+                      <div><label className="text-sm font-medium text-gray-700">Brand Name</label><input type="text" value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="My Company" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" /></div>
+                      <div><label className="text-sm font-medium text-gray-700">Category</label><input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. CRM Software, Dental Services" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" /></div>
+                      <button disabled={!url || !brandName || !category} onClick={() => setStep(2)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">Continue <ChevronRight size={16} /></button>
                     </div>
                   )}
 
@@ -200,18 +195,12 @@ export default function AddSiteModal() {
                       <p className="text-sm text-gray-500">Add competitors to track their AI visibility <span className="text-gray-400">(optional)</span></p>
                       {competitors.map((comp, idx) => (
                         <div key={idx} className="flex gap-2 items-start bg-gray-50 p-3 rounded-xl border border-gray-200">
-                          <div className="flex-1 space-y-2">
-                            <input type="text" value={comp.domain} onChange={(e) => updateCompetitor(idx, 'domain', e.target.value)} placeholder="competitor.com" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
-                            <input type="text" value={comp.brand_name} onChange={(e) => updateCompetitor(idx, 'brand_name', e.target.value)} placeholder="Brand name" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
-                          </div>
+                          <div className="flex-1 space-y-2"><input type="text" value={comp.domain} onChange={(e) => updateCompetitor(idx, 'domain', e.target.value)} placeholder="competitor.com" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" /><input type="text" value={comp.brand_name} onChange={(e) => updateCompetitor(idx, 'brand_name', e.target.value)} placeholder="Brand name" className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" /></div>
                           <button onClick={() => removeCompetitor(idx)} className="text-gray-400 hover:text-red-500 mt-1"><Trash2 size={16} /></button>
                         </div>
                       ))}
                       <button onClick={addCompetitor} className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium"><Plus size={14} /> Add Competitor</button>
-                      <div className="flex gap-3">
-                        <button onClick={() => setStep(1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium flex items-center justify-center gap-2"><ChevronLeft size={16} /> Back</button>
-                        <button onClick={() => setStep(3)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">Continue <ChevronRight size={16} /></button>
-                      </div>
+                      <div className="flex gap-3"><button onClick={() => setStep(1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium flex items-center justify-center gap-2"><ChevronLeft size={16} /> Back</button><button onClick={() => setStep(3)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2">Continue <ChevronRight size={16} /></button></div>
                     </div>
                   )}
 
@@ -219,16 +208,8 @@ export default function AddSiteModal() {
                     <div className="space-y-4">
                       <p className="text-sm text-gray-500 mb-3">Choose how you want to monitor this site</p>
                       <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => setScanMode('auto')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'auto' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <Zap size={20} className={scanMode === 'auto' ? 'text-emerald-600' : 'text-gray-400'} />
-                          <p className="font-semibold text-gray-900 mt-2">Auto</p>
-                          <p className="text-xs text-gray-500 mt-1">Daily scans + weekly audits. Hands‑off.</p>
-                        </button>
-                        <button onClick={() => setScanMode('manual')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'manual' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <Shield size={20} className={scanMode === 'manual' ? 'text-emerald-600' : 'text-gray-400'} />
-                          <p className="font-semibold text-gray-900 mt-2">Manual</p>
-                          <p className="text-xs text-gray-500 mt-1">Weekly audits only. You trigger extra scans.</p>
-                        </button>
+                        <button onClick={() => setScanMode('auto')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'auto' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}><Zap size={20} className={scanMode === 'auto' ? 'text-emerald-600' : 'text-gray-400'} /><p className="font-semibold text-gray-900 mt-2">Auto</p><p className="text-xs text-gray-500 mt-1">Daily scans + weekly audits. Hands‑off.</p></button>
+                        <button onClick={() => setScanMode('manual')} className={`p-4 rounded-xl border-2 text-left transition-all ${scanMode === 'manual' ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}><Shield size={20} className={scanMode === 'manual' ? 'text-emerald-600' : 'text-gray-400'} /><p className="font-semibold text-gray-900 mt-2">Manual</p><p className="text-xs text-gray-500 mt-1">Weekly audits only. You trigger extra scans.</p></button>
                       </div>
                       <button onClick={handleSubmit} disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 flex justify-center items-center gap-2">
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={16} />} Start Monitoring
