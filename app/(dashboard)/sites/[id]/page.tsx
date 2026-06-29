@@ -3,6 +3,7 @@ export const revalidate = 0;
 import { createServerSupabase } from '@/lib/supabase/server';
 import Link from 'next/link';
 import SiteDetailTabs from '@/components/SiteDetailTabs';
+import ScanModeToggle from '@/components/ScanModeToggle';
 
 export default async function SiteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerSupabase();
@@ -42,7 +43,10 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
           <h1 className="text-2xl font-bold text-gray-900">{site.domain}</h1>
           <p className="text-emerald-600 font-medium">{site.brand_name}</p>
         </div>
-        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${site.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{site.status}</span>
+        <div className="flex items-center gap-3">
+          <ScanModeToggle siteId={site.id} currentMode={site.scan_mode} />
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${site.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{site.status}</span>
+        </div>
       </div>
       <SiteDetailTabs site={site} latestMentions={latestAuditMentions} userId={user.id} userPlan={profile?.plan || 'free'} />
     </div>
