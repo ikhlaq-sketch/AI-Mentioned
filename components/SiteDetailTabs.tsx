@@ -32,28 +32,26 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
 
-  // Fetch prompts and their latest scores
-  useEffect(() => {
-    async function fetchPromptsWithScores() {
-      const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        // Fetch score + last used for each prompt
+  // Fetch prompts and their latest scoresuseEffect(() => {
+  async function fetchPromptsWithScores() {
+    const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      // ✅ Fetch ALL scores in one call
+      const scoreRes = await fetch(`/api/prompts/score?website_id=${site.id}&all=true`);
+      if (scoreRes.ok) {
+        const scoreData = await scoreRes.json();
         const scores: Record<string, number> = {};
         const lastUsed: Record<string, string> = {};
-        for (const p of data) {
-          const scoreRes = await fetch(`/api/prompts/score?website_id=${site.id}&prompt_text=${encodeURIComponent(p.prompt_text)}`);
-          if (scoreRes.ok) {
-            const scoreData = await scoreRes.json();
-            scores[p.prompt_text] = scoreData.score || 0;
-            if (scoreData.mentions && scoreData.mentions.length > 0) {
-              lastUsed[p.prompt_text] = scoreData.mentions[0].created_at;
-            }
+        if (scoreData.prompts) {
+          for (const [prompt, info] of Object.entries(scoreData.prompts)) {
+            scores[prompt] = (info as any).score || 0;
+            lastUsed[prompt] = (info as any).lastUsed || '';
           }
         }
         setPromptScores(scores);
         setPromptLastUsed(lastUsed);
-        // Sort: most recently used first, then by original order
+        // Sort by most recently used
         const sorted = [...data].sort((a, b) => {
           const aTime = lastUsed[a.prompt_text] ? new Date(lastUsed[a.prompt_text]).getTime() : 0;
           const bTime = lastUsed[b.prompt_text] ? new Date(lastUsed[b.prompt_text]).getTime() : 0;
@@ -62,8 +60,9 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         setPrompts(sorted);
       }
     }
-    fetchPromptsWithScores();
-  }, [site.id]);
+  }
+  fetchPromptsWithScores();
+}, [site.id]);
 
   useEffect(() => {
     if (!site.last_audit_at) {

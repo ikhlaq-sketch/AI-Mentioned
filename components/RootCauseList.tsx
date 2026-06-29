@@ -1,41 +1,28 @@
-import { AlertCircle, Lightbulb, Search } from 'lucide-react';
+import { AlertCircle, Lightbulb, Search, TrendingDown } from 'lucide-react';
 
 export default function RootCauseList({ crawlData, mentions, brandName, competitors }: { crawlData: any; mentions: any[]; brandName: string; competitors: any[] }) {
   const causes: { icon: any; color: string; text: string }[] = [];
-
-  const brandMentions = mentions.filter(m => m.entity_type === 'brand' && m.was_mentioned).length;
   const totalQueries = mentions.length || 1;
+  const brandMentions = mentions.filter(m => m.entity_type === 'brand' && m.was_mentioned).length;
+  const competitorMentions = mentions.filter(m => m.entity_type === 'competitor' && m.was_mentioned).length;
+  const brandRate = Math.round((brandMentions / totalQueries) * 100);
 
-  if (brandMentions < totalQueries * 0.3) {
-    causes.push({
-      icon: AlertCircle,
-      color: 'text-red-500 bg-red-50',
-      text: `Your brand "${brandName}" appeared in only ${brandMentions} out of ${totalQueries} AI answers. This indicates low entity recognition across AI models.`,
-    });
-  }
-
-  if (crawlData && (!crawlData.schema_markup || crawlData.schema_markup.length === 0)) {
-    causes.push({
-      icon: Search,
-      color: 'text-amber-500 bg-amber-50',
-      text: 'No structured data (schema markup) detected on your website. Competitors with FAQ and Organization schema are significantly more likely to be cited by AI models.',
-    });
-  }
-
-  if (crawlData && (!crawlData.h1_headings || crawlData.h1_headings.length === 0)) {
-    causes.push({
-      icon: Lightbulb,
-      color: 'text-blue-500 bg-blue-50',
-      text: 'Missing H1 headings make it harder for AI models to understand your page structure and main topics.',
-    });
-  }
-
-  if (causes.length === 0) {
-    causes.push({
-      icon: Lightbulb,
-      color: 'text-emerald-500 bg-emerald-50',
-      text: 'Your brand is performing well! Continue optimizing structured data and publishing fresh content to maintain and improve your AI visibility.',
-    });
+  if (totalQueries === 0) {
+    causes.push({ icon: AlertCircle, color: 'text-gray-500 bg-gray-50', text: 'No mention data available yet. Run an audit to get insights.' });
+  } else {
+    if (brandRate < 30) {
+      causes.push({ icon: TrendingDown, color: 'text-red-500 bg-red-50', text: `Your brand "${brandName}" appeared in only ${brandRate}% of AI responses. Competitors are being recommended more frequently.` });
+    }
+    if (competitorMentions > brandMentions) {
+      const topCompetitor = competitors[0] || 'competitors';
+      causes.push({ icon: Search, color: 'text-amber-500 bg-amber-50', text: `${topCompetitor} is mentioned more often than your brand. Consider adding structured data and comparison content to compete.` });
+    }
+    if (crawlData && (!crawlData.schema_markup || crawlData.schema_markup.length === 0)) {
+      causes.push({ icon: AlertCircle, color: 'text-red-500 bg-red-50', text: 'No schema markup detected. Adding FAQ and Organization schema significantly improves AI visibility.' });
+    }
+    if (brandRate >= 70) {
+      causes.push({ icon: Lightbulb, color: 'text-emerald-500 bg-emerald-50', text: 'Your brand is performing well! To reach Dominant status (90+), focus on getting mentioned across all 4 AI models consistently.' });
+    }
   }
 
   return (
