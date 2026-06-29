@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock, ArrowRight } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -178,6 +178,35 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
               )}
             </div>
           )}
+
+
+{/* ✅ Fixes Found Card */}
+{site.recommendations && site.recommendations.length > 0 && (
+  <div className="bg-gradient-to-r from-emerald-50 to-white border border-emerald-200 rounded-2xl p-5">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <Lightbulb className="w-5 h-5 text-emerald-600" />
+        </div>
+        <div>
+          <p className="text-gray-900 font-semibold">
+            {site.recommendations.length} fix{site.recommendations.length !== 1 ? 'es' : ''} identified
+          </p>
+          <p className="text-sm text-gray-500">
+            We found optimizations that can improve your AI visibility score
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => setActiveTab('recommendations')}
+        className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm"
+      >
+        Fix Now <ArrowRight size={14} />
+      </button>
+    </div>
+  </div>
+)}
+
 
           <CompetitorTable competitors={site.competitors || []} brandName={site.brand_name} mentions={displayMentions} />
           <RootCauseList crawlData={site.crawl_data?.[0] || null} mentions={displayMentions} brandName={site.brand_name} competitors={site.competitors || []} />
