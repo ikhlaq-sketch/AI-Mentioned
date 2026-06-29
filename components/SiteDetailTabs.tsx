@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Eye } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2 } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -17,6 +17,9 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [newPrompt, setNewPrompt] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const [displayScore, setDisplayScore] = useState(site.visibility_score || 0);
+  const [displayMentions, setDisplayMentions] = useState(latestMentions);
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
@@ -27,7 +30,6 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
 
-  // ✅ Fetch real prompts from database
   useEffect(() => {
     fetch(`/api/prompts/list?website_id=${site.id}`)
       .then(r => r.json())
@@ -43,6 +45,17 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
       setIsLoading(false);
     }
   }, [site.last_audit_at, router]);
+
+  const handlePromptClick = async (prompt: any) => {
+    setSelectedPrompt(prompt.prompt_text);
+    // Fetch latest audit for this prompt
+    const res = await fetch(`/api/prompts/score?website_id=${site.id}&prompt_text=${encodeURIComponent(prompt.prompt_text)}`);
+    if (res.ok) {
+      const data = await res.json();
+      setDisplayScore(data.score || 0);
+      setDisplayMentions(data.mentions || []);
+    }
+  };
 
   const addPrompt = async () => {
     if (!newPrompt.trim()) return;
@@ -96,9 +109,9 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <VisibilityScoreCard score={site.visibility_score || 0} previousScore={site.previous_score || 0} lastAuditAt={site.last_audit_at} isFreePlan={isFreePlan} />
-          <CompetitorTable competitors={site.competitors || []} brandName={site.brand_name} mentions={latestMentions} />
-          <RootCauseList crawlData={site.crawl_data?.[0] || null} mentions={latestMentions} brandName={site.brand_name} competitors={site.competitors || []} />
+          <VisibilityScoreCard score={displayScore} previousScore={site.previous_score || 0} lastAuditAt={site.last_audit_at} isFreePlan={isFreePlan} />
+          <CompetitorTable competitors={site.competitors || []} brandName={site.brand_name} mentions={displayMentions} />
+          <RootCauseList crawlData={site.crawl_data?.[0] || null} mentions={displayMentions} brandName={site.brand_name} competitors={site.competitors || []} />
         </div>
       )}
 
@@ -107,9 +120,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-bold text-gray-900">AI Audit Prompts</h3>
-              <p className="text-sm text-gray-500 mt-0.5">
-                These are the actual questions our AI models ask about your brand during audits.
-              </p>
+              <p className="text-sm text-gray-500 mt-0.5">Click a prompt to see its visibility score.</p>
             </div>
             <button onClick={() => setShowAddPrompt(true)} className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm">
               <Plus size={16} /> Add Prompt
@@ -129,41 +140,37 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
           )}
 
           {prompts.length > 0 ? (
-            <div className="space-y-3">
-              {prompts.map((prompt: any) => (
-                <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                  {editingId === prompt.id ? (
-                    <div className="flex gap-2">
-                      <input type="text" value={editText} onChange={(e) => setEditText(e.target.value)}
-                        className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-emerald-400" />
-                      <button onClick={() => updatePrompt(prompt.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">Save</button>
-                      <button onClick={() => setEditingId(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium">Cancel</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-gray-900 text-sm font-medium truncate">{prompt.prompt_text}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Active prompt — used in {site.scan_mode === 'auto' ? 'daily & weekly' : 'weekly'} audits
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 ml-3">
-                        <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
-                          className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+            <div className="space-y-2">
+              {prompts.map((prompt: any, index: number) => (
+                <div key={prompt.id}
+                  onClick={() => handlePromptClick(prompt)}
+                  className={`bg-white border rounded-xl p-4 cursor-pointer transition-all hover:border-emerald-300 ${selectedPrompt === prompt.prompt_text ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-900 text-sm font-medium truncate">{prompt.prompt_text}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${index < 4 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {index < 4 ? '📅 Weekly' : '🔄 Daily'}
+                        </span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                           {prompt.is_active ? 'Active' : 'Inactive'}
-                        </button>
-                        <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }} className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
-                        <button onClick={() => deletePrompt(prompt.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                        </span>
                       </div>
                     </div>
-                  )}
+                    <div className="flex items-center gap-2 ml-3" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => togglePrompt(prompt.id, prompt.is_active)}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full transition-all ${prompt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>On/Off</button>
+                      <button onClick={() => { setEditingId(prompt.id); setEditText(prompt.prompt_text); }} className="text-gray-400 hover:text-emerald-600"><Edit3 size={14} /></button>
+                      <button onClick={() => deletePrompt(prompt.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-white border border-gray-200 rounded-2xl">
               <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No prompts saved yet. Run an audit to auto-generate prompts, or add one manually.</p>
+              <p className="text-gray-500 text-sm">No prompts saved yet.</p>
             </div>
           )}
         </div>

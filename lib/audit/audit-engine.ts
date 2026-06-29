@@ -26,17 +26,11 @@ function generateFakeMentions(
   const competitorMentionCount = Math.random() < 0.5 ? 3 : 4;
   const competitorMentionLLMs = new Set<string>();
   while (competitorMentionLLMs.size < competitorMentionCount) competitorMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
-  const brandResponses = [
+  const responses = [
     `${brandName} is an emerging option worth considering.`,
     `${brandName} has potential but faces strong competition.`,
     `${brandName} offers some unique features but trails market leaders.`,
     `${brandName} is working to establish itself in this space.`,
-  ];
-  const competitorResponses = [
-    `${competitors[0] || 'The market leader'} dominates this category with comprehensive solutions.`,
-    `${competitors.join(' and ')} are the top recommendations in this space.`,
-    `Most users will find the best options with ${competitors.join(' or ')}.`,
-    `${competitors[0] || 'The leading brand'} consistently ranks highest in this category.`,
   ];
   for (const entity of entities) {
     const isBrand = entity.type === 'brand';
@@ -44,8 +38,7 @@ function generateFakeMentions(
       let wasMentioned: boolean;
       if (isBrand) wasMentioned = brandMentionLLMs.has(llmName);
       else wasMentioned = competitorMentionLLMs.has(llmName);
-      const response = isBrand ? brandResponses[Math.floor(Math.random() * brandResponses.length)] : competitorResponses[Math.floor(Math.random() * competitorResponses.length)];
-      mentions.push({ audit_id: auditId, website_id: websiteId, user_id: userId, llm_name: llmName, prompt_text: primaryPrompt, entity_name: entity.name, entity_type: entity.type, was_mentioned: wasMentioned, full_response: response });
+      mentions.push({ audit_id: auditId, website_id: websiteId, user_id: userId, llm_name: llmName, prompt_text: primaryPrompt, entity_name: entity.name, entity_type: entity.type, was_mentioned: wasMentioned, full_response: responses[Math.floor(Math.random() * responses.length)] });
     }
   }
   return mentions;
@@ -78,7 +71,7 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
-  // ✅ Generate prompt portfolio on baseline (first audit) for paid plans
+  // Generate prompt portfolio on baseline for paid plans
   if ((type === 'baseline' || type === 'weekly') && !isFreePlan) {
     const existingPrompts = website.prompts || [];
     if (existingPrompts.length === 0) {
@@ -86,39 +79,25 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
       try {
         const queries = await generatePromptPortfolio(website.category, website.brand_name);
         if (queries.length > 0) {
-          const promptRecords = queries.map((q: string) => ({
-            website_id: websiteId,
-            user_id: userId,
-            prompt_text: q,
-            is_active: true,
-          }));
+          const promptRecords = queries.map((q: string) => ({ website_id: websiteId, user_id: userId, prompt_text: q, is_active: true }));
           await service.from('prompts').insert(promptRecords);
-          // Refresh prompts
           const { data: freshPrompts } = await service.from('prompts').select('*').eq('website_id', websiteId);
           website.prompts = freshPrompts || [];
-          console.log(`[v0] Generated ${queries.length} prompts`);
         }
-      } catch (err) {
-        console.error(`[v0] Prompt generation failed:`, err);
-      }
+      } catch (err) { console.error(`[v0] Prompt generation failed:`, err); }
     }
   }
 
   // Skip day logic
-  const today = new Date().getDate();
   let isSkipDay = false;
   let daysSinceCreation = 0;
   if (!isFreePlan && website.created_at) {
     const siteCreatedAt = new Date(website.created_at);
     daysSinceCreation = Math.floor((Date.now() - siteCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
     if (type === 'daily') isSkipDay = daysSinceCreation % 7 === 0;
-    // ✅ If skip day (21) falls on weekly audit day (day % 7 === 0), skip the NEXT day instead
     if (!isSkipDay && daysSinceCreation > 0 && daysSinceCreation % 21 === 0) {
-      if (daysSinceCreation % 7 === 0) {
-        isSkipDay = false; // Don't skip — it's a weekly audit day, skip tomorrow instead
-      } else {
-        isSkipDay = true;
-      }
+      if (daysSinceCreation % 7 === 0) isSkipDay = false;
+      else isSkipDay = true;
     }
   }
 
@@ -133,12 +112,15 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     return { audit_id: audit.id, score: website.visibility_score, queries_consumed: 0 };
   }
 
-  // ✅ Select prompt based on audit type and day
+  // Select prompt based on audit type and day
   const allPrompts = website.prompts || [];
   const selectedPrompt = selectPromptForAudit(allPrompts, type, daysSinceCreation);
   const primaryPrompt = selectedPrompt || `What are the top options for ${website.category}?`;
   const brandName = website.brand_name;
   const competitors = (website.competitors || []).slice(0, 2).map((c: any) => c.brand_name);
+
+  // Save the prompt used for this audit
+  await service.from('prompts').upsert({ website_id: websiteId, user_id: userId, prompt_text: primaryPrompt, is_active: true }, { onConflict: 'website_id, prompt_text', ignoreDuplicates: false });
 
   let mentions: any[];
   if (isFreePlan) {
@@ -180,11 +162,15 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     await service.rpc('increment_queries', { uid: userId, count: queriesThisAudit });
   }
 
+  // ✅ Calculate score and ALWAYS update website (daily + weekly)
   const score = isFreePlan ? Math.floor(Math.random() * 31) + 40 : calculateVisibilityScore(mentions);
 
   await service.from('audits').update({ status: 'completed', queries_consumed: queriesThisAudit, visibility_score: score }).eq('id', audit.id);
+
+  const prevScore = website.visibility_score || 0;
   await service.from('websites').update({
-    visibility_score: score, previous_score: website.visibility_score || 0,
+    visibility_score: score,
+    previous_score: prevScore,
     last_audit_at: new Date().toISOString(),
     next_audit_at: type === 'weekly' || type === 'baseline' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : website.next_audit_at,
   }).eq('id', websiteId);
