@@ -15,6 +15,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [prompts, setPrompts] = useState<any[]>([]);
   const [promptScores, setPromptScores] = useState<Record<string, number>>({});
   const [promptLastUsed, setPromptLastUsed] = useState<Record<string, string>>({});
+  const [promptsLoading, setPromptsLoading] = useState(true);
   const [showAddPrompt, setShowAddPrompt] = useState(false);
   const [newPrompt, setNewPrompt] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,9 +33,9 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   ];
 
-  // Fetch prompts and their latest scores
   useEffect(() => {
     async function fetchPromptsWithScores() {
+      setPromptsLoading(true);
       const res = await fetch(`/api/prompts/list?website_id=${site.id}`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -59,6 +60,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
           setPrompts(sorted);
         }
       }
+      setPromptsLoading(false);
     }
     fetchPromptsWithScores();
   }, [site.id]);
@@ -136,77 +138,75 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         <div className="space-y-6">
           <VisibilityScoreCard score={displayScore} previousScore={site.previous_score || 0} lastAuditAt={site.last_audit_at} isFreePlan={isFreePlan} />
 
-          {prompts.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Prompts</h3>
+          {/* Recent Prompts - Loading Skeleton or Data */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Prompts</h3>
+              {prompts.length > 0 && (
                 <button onClick={() => setActiveTab('prompts')} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Manage prompts →</button>
+              )}
+            </div>
+            {promptsLoading ? (
+              <div className="animate-pulse space-y-2">
+                {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
+                <p className="text-xs text-gray-400 text-center pt-1">Loading prompts...</p>
               </div>
-              <div className="space-y-1.5">
-                {prompts.slice(0, 5).map((prompt: any) => {
-                  const isSelected = selectedPrompt === prompt.prompt_text;
-                  const promptScore = promptScores[prompt.prompt_text];
-                  return (
-                    <div key={prompt.id} onClick={() => handlePromptClick(prompt)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-gray-50 border-transparent hover:bg-white hover:border-gray-200'}`}>
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${promptLastUsed[prompt.prompt_text] ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-gray-700 truncate">{prompt.prompt_text}</p>
-                          {promptLastUsed[prompt.prompt_text] && (
-                            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                              <Clock size={10} />
-                              {new Date(promptLastUsed[prompt.prompt_text]).toLocaleDateString()}
-                            </p>
+            ) : prompts.length > 0 ? (
+              <>
+                <div className="space-y-1.5">
+                  {prompts.slice(0, 5).map((prompt: any) => {
+                    const isSelected = selectedPrompt === prompt.prompt_text;
+                    const promptScore = promptScores[prompt.prompt_text];
+                    return (
+                      <div key={prompt.id} onClick={() => handlePromptClick(prompt)}
+                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-gray-50 border-transparent hover:bg-white hover:border-gray-200'}`}>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${promptLastUsed[prompt.prompt_text] ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-gray-700 truncate">{prompt.prompt_text}</p>
+                            {promptLastUsed[prompt.prompt_text] && (
+                              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><Clock size={10} />{new Date(promptLastUsed[prompt.prompt_text]).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 ml-3 shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{(prompts.indexOf(prompt) < 4) ? 'Weekly' : 'Daily'}</span>
+                          {promptScore !== undefined && (
+                            <span className={`text-sm font-bold min-w-[3ch] text-right ${promptScore >= 70 ? 'text-emerald-600' : promptScore >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{promptScore}%</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 ml-3 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(prompts.indexOf(prompt) < 4) ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {(prompts.indexOf(prompt) < 4) ? 'Weekly' : 'Daily'}
-                        </span>
-                        {promptScore !== undefined && (
-                          <span className={`text-sm font-bold min-w-[3ch] text-right ${promptScore >= 70 ? 'text-emerald-600' : promptScore >= 40 ? 'text-amber-500' : 'text-red-500'}`}>{promptScore}%</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                {prompts.length > 5 && (
+                  <p className="text-xs text-gray-400 text-center mt-3">+{prompts.length - 5} more prompts — <button onClick={() => setActiveTab('prompts')} className="text-emerald-600 hover:text-emerald-700">view all</button></p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">No prompts yet. Prompts appear after audits run.</p>
+            )}
+          </div>
+
+          {/* Fixes Found Card */}
+          {site.recommendations && site.recommendations.length > 0 && (
+            <div className="bg-gradient-to-r from-emerald-50 to-white border border-emerald-200 rounded-2xl p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <Lightbulb className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-gray-900 font-semibold">{site.recommendations.length} fix{site.recommendations.length !== 1 ? 'es' : ''} identified</p>
+                    <p className="text-sm text-gray-500">We found optimizations that can improve your AI visibility score</p>
+                  </div>
+                </div>
+                <button onClick={() => setActiveTab('recommendations')} className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm">
+                  Fix Now <ArrowRight size={14} />
+                </button>
               </div>
-              {prompts.length > 5 && (
-                <p className="text-xs text-gray-400 text-center mt-3">+{prompts.length - 5} more prompts — <button onClick={() => setActiveTab('prompts')} className="text-emerald-600 hover:text-emerald-700">view all</button></p>
-              )}
             </div>
           )}
-
-
-{/* ✅ Fixes Found Card */}
-{site.recommendations && site.recommendations.length > 0 && (
-  <div className="bg-gradient-to-r from-emerald-50 to-white border border-emerald-200 rounded-2xl p-5">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <Lightbulb className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div>
-          <p className="text-gray-900 font-semibold">
-            {site.recommendations.length} fix{site.recommendations.length !== 1 ? 'es' : ''} identified
-          </p>
-          <p className="text-sm text-gray-500">
-            We found optimizations that can improve your AI visibility score
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={() => setActiveTab('recommendations')}
-        className="flex items-center gap-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm"
-      >
-        Fix Now <ArrowRight size={14} />
-      </button>
-    </div>
-  </div>
-)}
-
 
           <CompetitorTable competitors={site.competitors || []} brandName={site.brand_name} mentions={displayMentions} />
           <RootCauseList crawlData={site.crawl_data?.[0] || null} mentions={displayMentions} brandName={site.brand_name} competitors={site.competitors || []} />
@@ -233,7 +233,11 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
               </div>
             </div>
           )}
-          {prompts.length > 0 ? (
+          {promptsLoading ? (
+            <div className="animate-pulse space-y-2">
+              {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl" />)}
+            </div>
+          ) : prompts.length > 0 ? (
             <div className="space-y-2">
               {prompts.map((prompt: any) => (
                 <div key={prompt.id} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -260,7 +264,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
           ) : (
             <div className="text-center py-12 bg-white border border-gray-200 rounded-2xl">
               <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No prompts saved yet.</p>
+              <p className="text-gray-500 text-sm">No prompts saved yet. Run an audit to auto-generate prompts, or add one manually.</p>
             </div>
           )}
         </div>
