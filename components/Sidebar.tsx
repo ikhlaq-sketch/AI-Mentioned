@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient, signOut } from '@/lib/supabase/client';
 import { Home, Globe, Search, Lightbulb, FileText, Settings, LogOut, ArrowUpCircle } from 'lucide-react';
@@ -11,14 +11,21 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
+  const fetchProfile = useCallback(async () => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        supabase.from('profiles').select('*').eq('id', data.user.id).single().then(({ data }) => setProfile(data));
-      }
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      setProfile(data);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchProfile();
+    // Poll every 10 seconds to keep query count updated
+    const interval = setInterval(fetchProfile, 10000);
+    return () => clearInterval(interval);
+  }, [fetchProfile]);
 
   const navItems = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },

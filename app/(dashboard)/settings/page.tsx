@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { User, CreditCard, Bell } from 'lucide-react';
+import { User, CreditCard } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -37,27 +37,55 @@ export default function SettingsPage() {
   const handleManageSubscription = async () => {
     setPortalLoading(true);
     try {
-      const res = await fetch('/api/billing/checkout/portal', { method: 'POST' });
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch('/api/billing/checkout/portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else alert(data.error || 'Could not open billing portal.');
-    } catch { alert('Something went wrong.'); }
-    finally { setPortalLoading(false); }
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        // Fallback: redirect to pricing
+        window.location.href = '/?pricing=true#pricing';
+      }
+    } catch {
+      window.location.href = '/?pricing=true#pricing';
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   const handleUpgrade = async () => {
     setPortalLoading(true);
     try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ variant_id: '1796870' }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else alert(data.error || 'Could not initiate checkout.');
-    } catch { alert('Something went wrong.'); }
-    finally { setPortalLoading(false); }
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        window.location.href = '/?pricing=true#pricing';
+      }
+    } catch {
+      window.location.href = '/?pricing=true#pricing';
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   if (!profile) return <LoadingSpinner />;
@@ -77,7 +105,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex gap-6">
-        {/* Tabs */}
         <div className="w-48 space-y-1">
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -87,7 +114,6 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {/* Content */}
         <div className="flex-1 max-w-xl">
           {activeTab === 'profile' && (
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
