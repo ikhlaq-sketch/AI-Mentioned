@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { runAudit } from '@/lib/audit/audit-engine';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -13,10 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
-  const hmac = crypto.createHmac(
-    'sha256',
-    process.env.LEMON_SQUEEZY_WEBHOOK_SECRET!
-  );
+  const hmac = crypto.createHmac('sha256', process.env.LEMON_SQUEEZY_WEBHOOK_SECRET!);
   const digest = hmac.update(rawBody).digest('hex');
 
   if (signature !== digest) {
@@ -29,7 +27,6 @@ export async function POST(req: NextRequest) {
   try {
     const eventName = event.meta.event_name;
 
-    // ✅ Handle ALL payment events: order_created, subscription_created, subscription_updated
     if (
       eventName === 'subscription_created' ||
       eventName === 'subscription_updated' ||
@@ -46,7 +43,6 @@ export async function POST(req: NextRequest) {
       let variantId: string | null = null;
       let customerId: string | null = null;
 
-      // Extract data differently depending on event type
       if (eventName === 'order_created') {
         variantId = event.data.attributes.first_order_item?.variant_id?.toString();
         customerId = event.data.attributes.customer_id?.toString();
@@ -60,7 +56,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing variant_id' }, { status: 400 });
       }
 
-      // ✅ Use hardcoded variant IDs (no dependency on env vars)
       const plan = mapVariantToPlan(variantId);
       if (!plan) {
         console.error('Unknown variant:', variantId);
@@ -69,6 +64,11 @@ export async function POST(req: NextRequest) {
 
       const limits = getPlanLimits(plan);
 
+      // ✅ Check if user was previously on free plan
+      const { data: oldProfile } = await service.from('profiles').select('plan').eq('id', userId).single();
+      const wasFreePlan = !oldProfile?.plan || oldProfile.plan === 'free';
+
+      // Update profile
       await service
         .from('profiles')
         .update({
@@ -82,6 +82,29 @@ export async function POST(req: NextRequest) {
         .eq('id', userId);
 
       console.log(`✅ User ${userId} upgraded to ${plan}`);
+
+      // ✅ If upgrading from free, re-audit all existing websites to replace dummy data
+      if (wasFreePlan) {
+        console.log(`[v0] User was on free plan — re-auditing all websites`);
+        const { data: websites } = await service.from('websites').select('id').eq('user_id', userId);
+        
+        if (websites && websites.length > 0) {
+          for (const site of websites) {
+            try {
+              // Delete old fake data
+              await service.from('mentions').delete().eq('website_id', site.id);
+              await service.from('audits').delete().eq('website_id', site.id);
+              await service.from('recommendations').delete().eq('website_id', site.id);
+              
+              // Run fresh baseline audit with real AI data
+              await runAudit(site.id, userId, 'baseline');
+              console.log(`[v0] Re-audited site ${site.id} with real AI data`);
+            } catch (err: any) {
+              console.error(`[v0] Re-audit failed for site ${site.id}:`, err.message);
+            }
+          }
+        }
+      }
     } else if (eventName === 'subscription_cancelled') {
       const userId = event.meta.custom_data?.user_id;
       if (userId) {
@@ -105,7 +128,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ Hardcoded variant IDs – no dependency on environment variables
 function mapVariantToPlan(variantId: string): string | null {
   const variants: Record<string, string> = {
     '1796870': 'starter',
@@ -118,15 +140,10 @@ function mapVariantToPlan(variantId: string): string | null {
 
 function getPlanLimits(plan: string) {
   switch (plan) {
-    case 'starter':
-      return { sites: 1, queries: 100 };
-    case 'growth':
-      return { sites: 5, queries: 500 };
-    case 'scale':
-      return { sites: 10, queries: 1000 };
-    case 'agency_pro':
-      return { sites: 20, queries: 2000 };
-    default:
-      return { sites: 1, queries: 100 };
+    case 'starter': return { sites: 1, queries: 100 };
+    case 'growth': return { sites: 5, queries: 500 };
+    case 'scale': return { sites: 10, queries: 1000 };
+    case 'agency_pro': return { sites: 20, queries: 2000 };
+    default: return { sites: 1, queries: 100 };
   }
 }
