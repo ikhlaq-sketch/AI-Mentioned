@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // ✅ CORRECT Paddle Billing endpoint
-    const response = await fetch('https://api.paddle.com/checkout', {
+    // ✅ CORRECT Paddle Billing API endpoint
+    const response = await fetch('https://api.paddle.com/api/v1/checkouts', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       console.error('Paddle checkout error:', json);
+      console.error('Status:', response.status);
+      console.error('Price ID used:', price_id);
       return NextResponse.json({ error: json.error?.detail || 'Checkout failed' }, { status: 500 });
     }
 
