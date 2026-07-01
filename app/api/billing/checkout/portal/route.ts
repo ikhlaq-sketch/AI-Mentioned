@@ -26,34 +26,29 @@ export async function POST(req: NextRequest) {
   const service = createServiceClient();
   const { data: profile } = await service
     .from('profiles')
-    .select('lemon_squeezy_customer_id')
+    .select('paddle_customer_id')
     .eq('id', user.id)
     .single();
 
-  if (!profile?.lemon_squeezy_customer_id) {
+  if (!profile?.paddle_customer_id) {
     return NextResponse.json({ error: 'No active subscription' }, { status: 400 });
   }
 
   try {
-    const response = await fetch('https://api.lemonsqueezy.com/v1/customers/portal-sessions', {
+    const response = await fetch('https://api.paddle.com/customers/portal-sessions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
-        'Content-Type': 'application/vnd.api+json',
-        Accept: 'application/vnd.api+json',
+        'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        data: {
-          type: 'portal-sessions',
-          attributes: {
-            customer_id: profile.lemon_squeezy_customer_id,
-          },
-        },
+        customer_id: profile.paddle_customer_id,
       }),
     });
 
     const json = await response.json();
-    const portalUrl = json.data?.attributes?.url;
+    const portalUrl = json.data?.url;
+
     if (!portalUrl) throw new Error('Failed to generate portal URL');
 
     return NextResponse.json({ url: portalUrl });

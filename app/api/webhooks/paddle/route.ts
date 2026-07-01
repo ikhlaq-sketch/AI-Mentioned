@@ -8,16 +8,25 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const signature = req.headers.get('x-signature');
+  const signature = req.headers.get('paddle-signature');
 
   if (!signature) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
-  const hmac = crypto.createHmac('sha256', process.env.LEMON_SQUEEZY_WEBHOOK_SECRET!);
-  const digest = hmac.update(rawBody).digest('hex');
+  // Verify Paddle webhook signature
+  const ts = signature.split(';')[0]?.split('=')[1];
+  const h1 = signature.split(';')[1]?.split('=')[1];
 
-  if (signature !== digest) {
+  if (!ts || !h1) {
+    return NextResponse.json({ error: 'Invalid signature format' }, { status: 401 });
+  }
+
+  const payload = `${ts}:${rawBody}`;
+  const hmac = crypto.createHmac('sha256', process.env.PADDLE_WEBHOOK_SECRET!);
+  const computed = hmac.update(payload).digest('hex');
+
+  if (h1 !== computed) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -25,14 +34,15 @@ export async function POST(req: NextRequest) {
   const service = createServiceClient();
 
   try {
-    const eventName = event.meta.event_name;
+    const eventType = event.event_type;
+    const eventData = event.data;
 
     if (
-      eventName === 'subscription_created' ||
-      eventName === 'subscription_updated' ||
-      eventName === 'order_created'
+      eventType === 'subscription.created' ||
+      eventType === 'subscription.updated' ||
+      eventType === 'subscription.activated'
     ) {
-      const customData = event.meta.custom_data || {};
+      const customData = eventData.custom_data || {};
       const userId = customData.user_id;
 
       if (!userId) {
@@ -40,31 +50,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
       }
 
-      let variantId: string | null = null;
-      let customerId: string | null = null;
-
-      if (eventName === 'order_created') {
-        variantId = event.data.attributes.first_order_item?.variant_id?.toString();
-        customerId = event.data.attributes.customer_id?.toString();
-      } else {
-        variantId = event.data.attributes.variant_id?.toString();
-        customerId = event.data.attributes.customer_id?.toString();
+      const priceId = eventData.items?.[0]?.price_id;
+      if (!priceId) {
+        console.error('Missing price_id');
+        return NextResponse.json({ error: 'Missing price_id' }, { status: 400 });
       }
 
-      if (!variantId) {
-        console.error('Missing variant_id');
-        return NextResponse.json({ error: 'Missing variant_id' }, { status: 400 });
-      }
-
-      const plan = mapVariantToPlan(variantId);
+      const plan = mapPriceToPlan(priceId);
       if (!plan) {
-        console.error('Unknown variant:', variantId);
+        console.error('Unknown price:', priceId);
         return NextResponse.json({ error: 'Unknown plan' }, { status: 400 });
       }
 
       const limits = getPlanLimits(plan);
 
-      // ✅ Check if user was previously on free plan
+      // Check if user was previously on free plan
       const { data: oldProfile } = await service.from('profiles').select('plan').eq('id', userId).single();
       const wasFreePlan = !oldProfile?.plan || oldProfile.plan === 'free';
 
@@ -75,28 +75,25 @@ export async function POST(req: NextRequest) {
           plan,
           sites_limit: limits.sites,
           queries_limit: limits.queries,
-          lemon_squeezy_customer_id: customerId,
-          lemon_squeezy_subscription_id: event.data.id,
+          paddle_customer_id: eventData.customer_id,
+          paddle_subscription_id: eventData.id,
           subscription_status: 'active',
         })
         .eq('id', userId);
 
       console.log(`✅ User ${userId} upgraded to ${plan}`);
 
-      // ✅ If upgrading from free, re-audit all existing websites to replace dummy data
+      // Re-audit if upgrading from free
       if (wasFreePlan) {
         console.log(`[v0] User was on free plan — re-auditing all websites`);
         const { data: websites } = await service.from('websites').select('id').eq('user_id', userId);
-        
+
         if (websites && websites.length > 0) {
           for (const site of websites) {
             try {
-              // Delete old fake data
               await service.from('mentions').delete().eq('website_id', site.id);
               await service.from('audits').delete().eq('website_id', site.id);
               await service.from('recommendations').delete().eq('website_id', site.id);
-              
-              // Run fresh baseline audit with real AI data
               await runAudit(site.id, userId, 'baseline');
               console.log(`[v0] Re-audited site ${site.id} with real AI data`);
             } catch (err: any) {
@@ -105,8 +102,9 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    } else if (eventName === 'subscription_cancelled') {
-      const userId = event.meta.custom_data?.user_id;
+    } else if (eventType === 'subscription.canceled') {
+      const customData = eventData.custom_data || {};
+      const userId = customData.user_id;
       if (userId) {
         await service
           .from('profiles')
@@ -128,14 +126,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function mapVariantToPlan(variantId: string): string | null {
-  const variants: Record<string, string> = {
-    '1796870': 'starter',
-    '1796861': 'growth',
-    '1796866': 'scale',
-    '1796868': 'agency_pro',
+function mapPriceToPlan(priceId: string): string | null {
+  const prices: Record<string, string> = {
+    [process.env.PADDLE_STARTER_PRICE_ID!]: 'starter',
+    [process.env.PADDLE_GROWTH_PRICE_ID!]: 'growth',
+    [process.env.PADDLE_SCALE_PRICE_ID!]: 'scale',
+    [process.env.PADDLE_AGENCY_PRO_PRICE_ID!]: 'agency_pro',
   };
-  return variants[variantId] || null;
+  return prices[priceId] || null;
 }
 
 function getPlanLimits(plan: string) {

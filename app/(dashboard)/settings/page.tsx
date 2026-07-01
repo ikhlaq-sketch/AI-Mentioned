@@ -39,8 +39,7 @@ export default function SettingsPage() {
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
-      const res = await fetch('/api/billing/checkout/portal', {
+      const res = await fetch('/api/billing/portal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +50,6 @@ export default function SettingsPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        // Fallback: redirect to pricing
         window.location.href = '/?pricing=true#pricing';
       }
     } catch {
@@ -66,14 +64,13 @@ export default function SettingsPage() {
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ variant_id: '1796870' }),
+        body: JSON.stringify({ price_id: process.env.NEXT_PUBLIC_PADDLE_STARTER_PRICE_ID || '' }),
       });
       const data = await res.json();
       if (data.url) {
