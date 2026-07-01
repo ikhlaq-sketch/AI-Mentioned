@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // Use the correct Paddle Billing API endpoint
-    const response = await fetch('https://api.paddle.com/v1/checkouts', {
+    // ✅ CORRECT Paddle Billing endpoint
+    const response = await fetch('https://api.paddle.com/checkout', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -58,24 +58,10 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       console.error('Paddle checkout error:', json);
-      // Log more details for debugging
-      console.error('Status:', response.status);
-      console.error('Price ID used:', price_id);
-      return NextResponse.json({ 
-        error: json.error?.detail || 'Checkout failed',
-        details: json 
-      }, { status: 500 });
+      return NextResponse.json({ error: json.error?.detail || 'Checkout failed' }, { status: 500 });
     }
 
-    // The response structure might be different
-    const checkoutUrl = json.data?.checkout_url || json.data?.url || json.url;
-    
-    if (!checkoutUrl) {
-      console.error('No URL in response:', json);
-      return NextResponse.json({ error: 'No checkout URL returned' }, { status: 500 });
-    }
-
-    return NextResponse.json({ url: checkoutUrl });
+    return NextResponse.json({ url: json.data?.checkout_url || json.data?.url });
   } catch (err: any) {
     console.error('Fatal checkout error:', err.message);
     return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
