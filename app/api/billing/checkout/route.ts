@@ -33,24 +33,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // ✅ CORRECT Paddle Billing API endpoint
-    const response = await fetch('https://api.paddle.com/api/v1/checkouts', {
+    // IMPORTANT: Paddle Billing uses /transactions, not /checkouts
+    const response = await fetch('https://api.paddle.com/transactions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
+      // Paddle only requires items and your custom_data tracking ID here
       body: JSON.stringify({
         items: [{ price_id, quantity: 1 }],
-        customer: {
-          email: user.email,
-        },
         custom_data: {
           user_id: user.id,
-        },
-        settings: {
-          allow_coupons: false,
-        },
+        }
       }),
     });
 
@@ -58,12 +53,11 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       console.error('Paddle checkout error:', json);
-      console.error('Status:', response.status);
-      console.error('Price ID used:', price_id);
       return NextResponse.json({ error: json.error?.detail || 'Checkout failed' }, { status: 500 });
     }
 
-    return NextResponse.json({ url: json.data?.checkout_url || json.data?.url });
+    // Paddle returns the URL nested inside data.checkout.url
+    return NextResponse.json({ url: json.data?.checkout?.url });
   } catch (err: any) {
     console.error('Fatal checkout error:', err.message);
     return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });

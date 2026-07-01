@@ -35,19 +35,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await fetch('https://api.paddle.com/customers/portal-sessions', {
+    // IMPORTANT: The customer ID must be injected directly into the URL path
+    const response = await fetch(`https://api.paddle.com/customers/${profile.paddle_customer_id}/portal-sessions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        customer_id: profile.paddle_customer_id,
-      }),
+      }
     });
 
     const json = await response.json();
-    const portalUrl = json.data?.url;
+    
+    // Paddle returns multiple portal links. The general overview is the best default.
+    const portalUrl = json.data?.urls?.general?.overview || json.data?.urls?.general?.subscriptions;
 
     if (!portalUrl) throw new Error('Failed to generate portal URL');
 
