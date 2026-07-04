@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock, ArrowRight, Lock } from 'lucide-react';
+import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock, ArrowRight, Lock, Settings, AlertTriangle } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -23,14 +23,20 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [displayScore, setDisplayScore] = useState(site.visibility_score || 0);
   const [displayMentions, setDisplayMentions] = useState(latestMentions);
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  
+  // NEW: Deletion state
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
 
+  // NEW: Added the Settings tab
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'prompts', label: 'Prompts', icon: MessageSquare },
     { id: 'audits', label: 'Audit History', icon: Search },
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   useEffect(() => {
@@ -84,6 +90,33 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     }
   };
 
+  // NEW: Website Deletion Logic
+  const handleDeleteSite = async () => {
+    if (!confirm(`Are you sure you want to delete ${site.domain}? This will permanently erase all associated audits, mentions, and data. This action cannot be undone.`)) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/websites/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website_id: site.id }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete site.');
+        setIsDeleting(false);
+      } else {
+        router.push('/dashboard');
+        router.refresh();
+      }
+    } catch (err) {
+      alert('An unexpected error occurred. Please try again.');
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -97,10 +130,10 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
   return (
     <div>
-      <div className="flex border-b border-gray-200 mb-6">
+      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 ${activeTab === tab.id ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
             <tab.icon size={16} /> {tab.label}
           </button>
         ))}
@@ -258,6 +291,31 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
       {activeTab === 'recommendations' && (
         <RecommendationsList recommendations={site.recommendations || []} websiteId={site.id} userId={userId} githubConnected={!!site.github_token_encrypted} githubRepo={site.github_repo} isFreePlan={isFreePlan} />
       )}
+
+      {/* NEW: Settings & Danger Zone Tab */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-red-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-red-600 flex items-center gap-2 mb-2">
+              <AlertTriangle size={20} /> Danger Zone
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Permanently delete <strong>{site.domain}</strong> and all of its historical data. This includes all configured prompts, audit history, AI mentions, and optimization recommendations. 
+              <strong> This action cannot be undone.</strong>
+            </p>
+            
+            <button
+              onClick={handleDeleteSite}
+              disabled={isDeleting}
+              className={`bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold px-5 py-2.5 rounded-xl text-sm transition-all flex items-center gap-2 ${isDeleting ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 size={16} />}
+              {isDeleting ? 'Deleting Website...' : 'Delete Website'}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
