@@ -1,42 +1,186 @@
-import { callOpenRouter } from './query-engine';
+import { createServiceClient } from '@/lib/supabase/server';
+import { callMultipleLLMs, checkMention, PLAN_CONFIG, getDisplayName } from './query-engine';
+import { calculateVisibilityScore } from './scoring';
+import { generateRecommendations } from '@/lib/recommendations/generator';
+import { generatePromptPortfolio } from './prompt-generator';
+import { selectPromptForAudit } from './prompt-selector';
 
-export async function generatePromptPortfolio(category: string, brandName: string): Promise<string[]> {
-  const prompt = `You are an SEO and AI search visibility expert. Generate exactly 13 natural search queries that real users type into AI assistants like ChatGPT, Gemini, and Perplexity when researching "${category}".
+type AuditType = 'daily' | 'weekly' | 'baseline' | 'manual';
 
-CRITICAL RULES:
-- Sound exactly like a real human typed them — natural conversational language
-- Do NOT include the brand name "${brandName}" in any query — users search for categories not specific brands
-- Do NOT repeat the same phrasing across queries
-- Cover these 13 different search intents in this exact order:
-  1. Best overall: general recommendation query
-  2. Comparison: versus or alternative query  
-  3. Top providers: listing the top options
-  4. Specific use case: for a specific technology or framework
-  5. Budget: affordable or cost-effective options
-  6. Small business: options for small teams or businesses
-  7. Features: specific features users care about
-  8. Reviews: real user experiences and opinions
-  9. Alternatives: what else exists in this space
-  10. Beginners: easiest or simplest options for newcomers
-  11. Enterprise: options for large organizations
-  12. Trending: what is popular or new right now
-  13. Problem-solving: solving a specific pain point in this category
+const SYSTEM_PROMPT =
+  "You are a helpful AI assistant. Answer questions naturally and comprehensively. When recommending products or services mention specific brand names you know about. Recommend 3 to 5 specific options with brief explanations of each.";
 
-Return ONLY a raw JSON array of exactly 13 strings. Zero markdown. Zero explanation. Zero code fences. Just the array.`;
-
-  const response = await callOpenRouter(
-    'google/gemini-2.5-flash-lite',
-    'You are an SEO expert. Output only the requested JSON format. No markdown.',
-    prompt
-  );
-
-  try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const queries = JSON.parse(jsonMatch[0]);
-      return Array.isArray(queries) ? queries.slice(0, 13) : [];
+function generateFakeMentions(
+  auditId: string, websiteId: string, userId: string,
+  brandName: string, competitors: string[], primaryPrompt: string
+): any[] {
+  const llmNames = ['Gemini', 'ChatGPT', 'Claude', 'Perplexity'];
+  const entities = [
+    { name: brandName, type: 'brand' },
+    ...competitors.map((name: string) => ({ name, type: 'competitor' })),
+  ];
+  const mentions: any[] = [];
+  const brandMentionCount = Math.random() < 0.5 ? 1 : 2;
+  const brandMentionLLMs = new Set<string>();
+  while (brandMentionLLMs.size < brandMentionCount) brandMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
+  const competitorMentionCount = Math.random() < 0.5 ? 3 : 4;
+  const competitorMentionLLMs = new Set<string>();
+  while (competitorMentionLLMs.size < competitorMentionCount) competitorMentionLLMs.add(llmNames[Math.floor(Math.random() * llmNames.length)]);
+  const responses = [
+    `${brandName} is an emerging option worth considering.`,
+    `${brandName} has potential but faces strong competition.`,
+    `${brandName} offers some unique features but trails market leaders.`,
+    `${brandName} is working to establish itself in this space.`,
+  ];
+  for (const entity of entities) {
+    const isBrand = entity.type === 'brand';
+    for (const llmName of llmNames) {
+      let wasMentioned: boolean;
+      if (isBrand) wasMentioned = brandMentionLLMs.has(llmName);
+      else wasMentioned = competitorMentionLLMs.has(llmName);
+      mentions.push({ audit_id: auditId, website_id: websiteId, user_id: userId, llm_name: llmName, prompt_text: primaryPrompt, entity_name: entity.name, entity_type: entity.type, was_mentioned: wasMentioned, full_response: responses[Math.floor(Math.random() * responses.length)] });
     }
-  } catch {}
+  }
+  return mentions;
+}
 
-  return [];
+export async function runAudit(websiteId: string, userId: string, type: AuditType) {
+  const service = createServiceClient();
+  console.log(`[v0] runAudit START: website=${websiteId}, user=${userId}, type=${type}`);
+
+  const { data: website, error: siteErr } = await service.from('websites').select('*, prompts(*), competitors(*)').eq('id', websiteId).single();
+  if (siteErr || !website) throw new Error('Website not found');
+
+  const { data: profile } = await service.from('profiles').select('*').eq('id', userId).single();
+  if (!profile) throw new Error('Profile not found');
+
+  const planConfig = PLAN_CONFIG[profile.plan as keyof typeof PLAN_CONFIG] || PLAN_CONFIG.free;
+  const isFreePlan = profile.plan === 'free';
+  const queriesThisAudit = type === 'daily' ? 2 : (isFreePlan ? 0 : planConfig.llms.length * 3);
+
+  if (!isFreePlan) {
+    const totalAfterAudit = profile.queries_used + queriesThisAudit;
+    if (totalAfterAudit > profile.queries_limit) {
+      if (planConfig.overage_allowed) {
+        console.log(`[v0] Overage: ${totalAfterAudit - profile.queries_limit} queries`);
+      } else {
+        const error = new Error('Query limit exceeded') as any;
+        error.resetDate = profile.queries_reset_at;
+        throw error;
+      }
+    }
+  }
+
+  // Generate prompt portfolio on baseline for paid plans
+  if ((type === 'baseline' || type === 'weekly') && !isFreePlan) {
+    const existingPrompts = website.prompts || [];
+    if (existingPrompts.length === 0) {
+      console.log(`[v0] Generating prompt portfolio for ${website.category}`);
+      try {
+        const queries = await generatePromptPortfolio(website.category, website.brand_name);
+        if (queries.length > 0) {
+          const promptRecords = queries.map((q: string) => ({ website_id: websiteId, user_id: userId, prompt_text: q, is_active: true }));
+          await service.from('prompts').insert(promptRecords);
+          const { data: freshPrompts } = await service.from('prompts').select('*').eq('website_id', websiteId);
+          website.prompts = freshPrompts || [];
+        }
+      } catch (err) { console.error(`[v0] Prompt generation failed:`, err); }
+    }
+  }
+
+  // Skip day logic (Strict 30-Day Billing Cycles)
+  let isSkipDay = false;
+  let daysSinceCreation = 0;
+  
+  if (!isFreePlan && website.created_at) {
+    const siteCreatedAt = new Date(website.created_at);
+    daysSinceCreation = Math.floor((Date.now() - siteCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Lock to a 30-day loop
+    const cycleDay = daysSinceCreation % 30;
+    
+    // Skip Daily Scan ONLY on Days 0, 7, 14, and 21. 
+    // Days 22 through 29 will bypass this and run normal daily scans.
+    if (type === 'daily') {
+      isSkipDay = (cycleDay === 0 || cycleDay === 7 || cycleDay === 14 || cycleDay === 21);
+    }
+  }
+
+  const { data: audit, error: auditErr } = await service.from('audits').insert({
+    website_id: websiteId, user_id: userId, audit_type: type,
+    status: isSkipDay ? 'completed' : 'running',
+    queries_consumed: isSkipDay ? 0 : queriesThisAudit,
+  }).select().single();
+  if (auditErr) throw new Error('Failed to create audit');
+
+  if (isSkipDay) {
+    return { audit_id: audit.id, score: website.visibility_score, queries_consumed: 0 };
+  }
+
+  // Select prompt based on audit type and day
+  const allPrompts = website.prompts || [];
+  const selectedPrompt = selectPromptForAudit(allPrompts, type, daysSinceCreation);
+  const primaryPrompt = selectedPrompt || `What are the top options for ${website.category}?`;
+  const brandName = website.brand_name;
+  const competitors = (website.competitors || []).slice(0, 2).map((c: any) => c.brand_name);
+
+  // Save the prompt used for this audit
+  await service.from('prompts').upsert({ website_id: websiteId, user_id: userId, prompt_text: primaryPrompt, is_active: true }, { onConflict: 'website_id, prompt_text', ignoreDuplicates: false });
+
+  let mentions: any[];
+  if (isFreePlan) {
+    mentions = generateFakeMentions(audit.id, websiteId, userId, brandName, competitors, primaryPrompt);
+  } else {
+    const entities = [
+      { name: brandName, type: 'brand' },
+      ...competitors.map((name: string) => ({ name, type: 'competitor' })),
+    ];
+    const userPrompt = `Question: "${primaryPrompt}"\n\nPlease answer this question comprehensively. Mention these brands if relevant: ${brandName}, ${competitors.join(', ')}.\nProvide specific recommendations with brand names when applicable.`;
+    if (type === 'daily') {
+      const response = await callMultipleLLMs(['google/gemini-2.5-flash-lite'], SYSTEM_PROMPT, userPrompt);
+      const llmResponse = response['google/gemini-2.5-flash-lite'] || '';
+      mentions = entities.slice(0, 2).map((entity) => ({
+        audit_id: audit.id, website_id: websiteId, user_id: userId,
+        llm_name: 'Gemini', prompt_text: primaryPrompt,
+        entity_name: entity.name, entity_type: entity.type,
+        was_mentioned: checkMention(llmResponse, entity.name), full_response: llmResponse,
+      }));
+    } else {
+      const llmResponses = await callMultipleLLMs(planConfig.llms, SYSTEM_PROMPT, userPrompt);
+      mentions = [];
+      for (const entity of entities) {
+        for (const model of planConfig.llms) {
+          const llmResponse = llmResponses[model] || '';
+          mentions.push({
+            audit_id: audit.id, website_id: websiteId, user_id: userId,
+            llm_name: getDisplayName(model), prompt_text: primaryPrompt,
+            entity_name: entity.name, entity_type: entity.type,
+            was_mentioned: checkMention(llmResponse, entity.name), full_response: llmResponse,
+          });
+        }
+      }
+    }
+  }
+
+  await service.from('mentions').insert(mentions);
+  if (!isFreePlan && !isSkipDay) {
+    await service.rpc('increment_queries', { uid: userId, count: queriesThisAudit });
+  }
+
+  // ✅ Calculate score and ALWAYS update website (daily + weekly)
+  const score = isFreePlan ? Math.floor(Math.random() * 31) + 40 : calculateVisibilityScore(mentions);
+
+  await service.from('audits').update({ status: 'completed', queries_consumed: queriesThisAudit, visibility_score: score }).eq('id', audit.id);
+
+  const prevScore = website.visibility_score || 0;
+  await service.from('websites').update({
+    visibility_score: score,
+    previous_score: prevScore,
+    last_audit_at: new Date().toISOString(),
+    next_audit_at: type === 'weekly' || type === 'baseline' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : website.next_audit_at,
+  }).eq('id', websiteId);
+
+  if (type === 'weekly' || type === 'baseline') await generateRecommendations(websiteId, userId);
+
+  return { audit_id: audit.id, score, queries_consumed: queriesThisAudit };
 }
