@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
       }
 
-// Look for price.id (Subscription events) OR price_id (Transaction events)
+      // Look for price.id (Subscription events) OR price_id (Transaction events)
       const firstItem = eventData.items?.[0];
       const priceId = firstItem?.price?.id || firstItem?.price_id;
       
@@ -78,8 +78,10 @@ export async function POST(req: NextRequest) {
       const { data: oldProfile } = await service.from('profiles').select('plan').eq('id', userId).single();
       const wasFreePlan = !oldProfile?.plan || oldProfile.plan === 'free';
 
-      // Update profile records in Supabase
-      await service
+      console.log(`[SUPABASE PADDLE DEBUG] Attempting row update for target User ID: ${userId}`);
+
+      // Update profile records in Supabase with strict row verification logs
+      const { data: updateData, error: updateError } = await service
         .from('profiles')
         .update({
           plan,
@@ -89,9 +91,20 @@ export async function POST(req: NextRequest) {
           paddle_subscription_id: eventData.id,
           subscription_status: 'active',
         })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select(); // Triggers direct array return validation
 
-      console.log(`✅ User ${userId} upgraded to ${plan}`);
+      if (updateError) {
+        console.error(`❌ [SUPABASE UPDATE ERROR]: ${updateError.message} | Details: ${updateError.details}`);
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      if (!updateData || updateData.length === 0) {
+        console.error(`❌ [SUPABASE ZERO-ROW WARNING]: Database call returned no match for user_id: ${userId}. Possible RLS block or invalid id.`);
+        return NextResponse.json({ error: 'Profile row target unmatched' }, { status: 404 });
+      }
+
+      console.log(`✅ User ${userId} successfully upgraded and confirmed database-wide as: ${plan}`);
 
       // Re-audit if upgrading from free tier parameters
       if (wasFreePlan) {
