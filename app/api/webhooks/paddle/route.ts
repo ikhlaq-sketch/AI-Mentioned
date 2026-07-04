@@ -14,14 +14,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
-  // Verify Paddle webhook signature
-  const ts = signature.split(';')[0]?.split('=')[1];
-  const h1 = signature.split(';')[1]?.split('=')[1];
+  // Robustly parse the Paddle webhook signature header components
+  const parts = signature.split(';').reduce((acc, part) => {
+    const [key, value] = part.split('=');
+    if (key && value) acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const ts = parts['ts'];
+  const h1 = parts['h1'];
 
   if (!ts || !h1) {
     return NextResponse.json({ error: 'Invalid signature format' }, { status: 401 });
   }
 
+  // Verify Paddle webhook signature integrity
   const payload = `${ts}:${rawBody}`;
   const hmac = crypto.createHmac('sha256', process.env.PADDLE_WEBHOOK_SECRET!);
   const computed = hmac.update(payload).digest('hex');
@@ -58,8 +65,8 @@ export async function POST(req: NextRequest) {
 
       const plan = mapPriceToPlan(priceId);
       if (!plan) {
-        console.error('Unknown price:', priceId);
-        return NextResponse.json({ error: 'Unknown plan' }, { status: 400 });
+        console.error('Unknown price ID received from webhook:', priceId);
+        return NextResponse.json({ error: 'Unknown plan mapped' }, { status: 400 });
       }
 
       const limits = getPlanLimits(plan);
@@ -68,7 +75,7 @@ export async function POST(req: NextRequest) {
       const { data: oldProfile } = await service.from('profiles').select('plan').eq('id', userId).single();
       const wasFreePlan = !oldProfile?.plan || oldProfile.plan === 'free';
 
-      // Update profile
+      // Update profile records in Supabase
       await service
         .from('profiles')
         .update({
@@ -83,7 +90,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`✅ User ${userId} upgraded to ${plan}`);
 
-      // Re-audit if upgrading from free
+      // Re-audit if upgrading from free tier parameters
       if (wasFreePlan) {
         console.log(`[v0] User was on free plan — re-auditing all websites`);
         const { data: websites } = await service.from('websites').select('id').eq('user_id', userId);
@@ -121,17 +128,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (err: any) {
-    console.error('Webhook error:', err);
+    console.error('Webhook error processing failed:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
+// FIXED: Included the correct NEXT_PUBLIC_ prefixes to align with environment settings
 function mapPriceToPlan(priceId: string): string | null {
   const prices: Record<string, string> = {
-    [process.env.PADDLE_STARTER_PRICE_ID!]: 'starter',
-    [process.env.PADDLE_GROWTH_PRICE_ID!]: 'growth',
-    [process.env.PADDLE_SCALE_PRICE_ID!]: 'scale',
-    [process.env.PADDLE_AGENCY_PRO_PRICE_ID!]: 'agency_pro',
+    [process.env.NEXT_PUBLIC_PADDLE_STARTER_PRICE_ID!]: 'starter',
+    [process.env.NEXT_PUBLIC_PADDLE_GROWTH_PRICE_ID!]: 'growth',
+    [process.env.NEXT_PUBLIC_PADDLE_SCALE_PRICE_ID!]: 'scale',
+    [process.env.NEXT_PUBLIC_PADDLE_AGENCY_PRO_PRICE_ID!]: 'agency_pro',
   };
   return prices[priceId] || null;
 }
