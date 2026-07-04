@@ -57,9 +57,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
       }
 
-      const priceId = eventData.items?.[0]?.price_id;
+// Look for price.id (Subscription events) OR price_id (Transaction events)
+      const firstItem = eventData.items?.[0];
+      const priceId = firstItem?.price?.id || firstItem?.price_id;
+      
       if (!priceId) {
-        console.error('Missing price_id');
+        console.error('Missing price_id in payload:', JSON.stringify(firstItem));
         return NextResponse.json({ error: 'Missing price_id' }, { status: 400 });
       }
 
