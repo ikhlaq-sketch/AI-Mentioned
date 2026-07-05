@@ -26,14 +26,19 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        {/* 2. Initialize Paddle to catch the ?_ptxn= URL parameter and open the overlay */}
+        {/* 2. Initialize Paddle and detect checkout completion */}
         <Script id="paddle-setup" strategy="afterInteractive">
           {`
-            // Wait for the script to load, then initialize
             window.onload = function() {
               if (window.Paddle) {
                 Paddle.Initialize({ 
-                  token: "${process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN}"
+                  token: "${process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN}",
+                  eventCallback: function(data) {
+                    if (data.name === 'checkout.completed') {
+                      // Redirect to trigger the dynamic loading screen
+                      window.location.href = '/dashboard?upgrading=true';
+                    }
+                  }
                 });
               }
             };

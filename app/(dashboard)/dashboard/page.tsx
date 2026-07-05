@@ -3,6 +3,7 @@ import { BarChart3, Globe, Search, TrendingUp, Sparkles, ArrowRight, Zap, Activi
 import StatCard from '@/components/StatCard';
 import UpgradeButton from '@/components/UpgradeButton';
 import Link from 'next/link';
+import UpgradeLoader from '@/components/UpgradeLoader';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -44,6 +45,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 relative">
+      
+      {/* OVERLAY LOADER FOR UPGRADES */}
+      <UpgradeLoader />
       
       {/* OVERLIMIT PLAN DOWNGRADE MODAL BLOCKER */}
       {isOverLimit && (
@@ -205,5 +209,5 @@ export default async function DashboardPage() {
         </section>
       </div>
     </div>
-  );
+  ); 
 }
