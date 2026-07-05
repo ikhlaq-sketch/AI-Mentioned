@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-// 1. IMPORT THE CORRECT CLIENT (The same one your dashboard uses)
 import { createServerSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -7,29 +6,45 @@ export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
-    // 2. USE THE CORRECT CLIENT
     const supabase = createServerSupabase();
     
-    // 3. Get the user from the browser cookies
+    // 1. Get user from cookies
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      console.error("[Status API] Auth Error:", authError);
       return NextResponse.json({ ready: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 4. Check if the prompts are finished generating
-    const { count, error } = await supabase
+    // 2. Check if the 13 prompts have been generated
+    const { count: promptCount } = await supabase
       .from('prompts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id);
 
-    if (error) {
-      console.error("[Status API] DB error:", error);
-      return NextResponse.json({ ready: false }, { status: 500 });
-    }
+    // 3. Check if there are ANY currently running audits
+    const { count: runningCount } = await supabase
+      .from('audits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'running');
 
-    const isReady = count !== null && count >= 13;
+    // 4. Check if there is at least one completed audit 
+    // (Since the webhook wipes the fake ones, this means the REAL one finished)
+    const { count: completedCount } = await supabase
+      .from('audits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    // THE MAGIC LOGIC:
+    // The process is ONLY fully finished when ALL 3 of these are true:
+    // - 1. We have the 13+ prompts
+    // - 2. There are exactly 0 audits stuck in the 'running' state
+    // - 3. We have at least 1 successfully 'completed' audit
+    const hasPrompts = promptCount !== null && promptCount >= 13;
+    const isAuditFinished = (runningCount === 0) && (completedCount !== null && completedCount > 0);
+
+    const isReady = hasPrompts && isAuditFinished;
     
     return NextResponse.json({ ready: isReady });
     
