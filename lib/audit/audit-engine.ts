@@ -71,33 +71,44 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
     }
   }
 
-  // Generate prompt portfolio on baseline for paid plans
-  if ((type === 'baseline' || type === 'weekly') && !isFreePlan) {
-    const existingPrompts = website.prompts || [];
-    if (existingPrompts.length === 0) {
-      console.log(`[v0] Generating prompt portfolio for ${website.category}`);
-      try {
-        const queries = await generatePromptPortfolio(website.category, website.brand_name);
-        if (queries.length > 0) {
-          const promptRecords = queries.map((q: string) => ({ website_id: websiteId, user_id: userId, prompt_text: q, is_active: true }));
-          await service.from('prompts').insert(promptRecords);
-          const { data: freshPrompts } = await service.from('prompts').select('*').eq('website_id', websiteId);
-          website.prompts = freshPrompts || [];
-        }
-      } catch (err) { console.error(`[v0] Prompt generation failed:`, err); }
-    }
+  // --- UPGRADE HEALING LOGIC: Detect if user upgraded from Free to Paid ---
+  const existingPrompts = website.prompts || [];
+  let isUpgradingFromFree = false;
+
+  // If paid user has fewer than 13 prompts, they just upgraded! Delete the fake one and make 13 real ones.
+  if (!isFreePlan && existingPrompts.length < 13) {
+    console.log(`[v0] Upgrading prompt portfolio for ${website.category} (Free -> Paid)`);
+    isUpgradingFromFree = true;
+    type = 'baseline'; // Force baseline audit type
+
+    try {
+      const queries = await generatePromptPortfolio(website.category, website.brand_name);
+      if (queries.length > 0) {
+        // Clear the fake free-tier prompt so the 30-day rotation stays perfectly synced
+        await service.from('prompts').delete().eq('website_id', websiteId);
+
+        const promptRecords = queries.map((q: string) => ({ website_id: websiteId, user_id: userId, prompt_text: q, is_active: true }));
+        await service.from('prompts').insert(promptRecords);
+        const { data: freshPrompts } = await service.from('prompts').select('*').eq('website_id', websiteId);
+        website.prompts = freshPrompts || [];
+      }
+    } catch (err) { console.error(`[v0] Prompt generation failed:`, err); }
   }
 
-  // Skip day logic
+  // Skip day logic (Strict 30-Day Billing Cycles)
   let isSkipDay = false;
   let daysSinceCreation = 0;
+  
   if (!isFreePlan && website.created_at) {
     const siteCreatedAt = new Date(website.created_at);
     daysSinceCreation = Math.floor((Date.now() - siteCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
-    if (type === 'daily') isSkipDay = daysSinceCreation % 7 === 0;
-    if (!isSkipDay && daysSinceCreation > 0 && daysSinceCreation % 21 === 0) {
-      if (daysSinceCreation % 7 === 0) isSkipDay = false;
-      else isSkipDay = true;
+    
+    const cycleDay = daysSinceCreation % 30;
+    
+    // Skip Daily Scan ONLY on Days 0, 7, 14, and 21. 
+    // If they just upgraded, NEVER skip.
+    if (type === 'daily' && !isUpgradingFromFree) {
+      isSkipDay = (cycleDay === 0 || cycleDay === 7 || cycleDay === 14 || cycleDay === 21);
     }
   }
 
@@ -178,4 +189,31 @@ export async function runAudit(websiteId: string, userId: string, type: AuditTyp
   if (type === 'weekly' || type === 'baseline') await generateRecommendations(websiteId, userId);
 
   return { audit_id: audit.id, score, queries_consumed: queriesThisAudit };
+}
+
+/**
+ * 🚀 NEW: Trigger baseline audits for all websites when a user upgrades from free to paid
+ * Call this function from your Paddle webhook handler after updating the user's plan
+ */
+export async function triggerBaselineAuditsOnUpgrade(userId: string, oldPlan: string, newPlan: string) {
+  // Only run if upgrading from free to a paid plan
+  if (oldPlan === 'free' && newPlan !== 'free') {
+    const service = createServiceClient();
+    console.log(`[triggerBaselineAudits] User ${userId} upgraded to ${newPlan}`);
+
+    // Get all websites for this user
+    const { data: websites } = await service.from('websites').select('id').eq('user_id', userId);
+
+    if (websites && websites.length > 0) {
+      // Trigger baseline audit for each website
+      for (const site of websites) {
+        try {
+          console.log(`[triggerBaselineAudits] Running baseline audit for website ${site.id}`);
+          await runAudit(site.id, userId, 'baseline');
+        } catch (error: any) {
+          console.error(`[triggerBaselineAudits] ❌ Failed for website ${site.id}:`, error.message);
+        }
+      }
+    }
+  }
 }

@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
           subscription_status: 'active',
         })
         .eq('id', userId)
-        .select(); // Triggers direct array return validation
+        .select(); 
 
       if (updateError) {
         console.error(`❌ [SUPABASE UPDATE ERROR]: ${updateError.message} | Details: ${updateError.details}`);
@@ -106,24 +106,30 @@ export async function POST(req: NextRequest) {
 
       console.log(`✅ User ${userId} successfully upgraded and confirmed database-wide as: ${plan}`);
 
-      // Re-audit if upgrading from free tier parameters
+      // 🚀 THE FIX: Run the re-audit loop in the background WITHOUT blocking the webhook!
       if (wasFreePlan) {
-        console.log(`[v0] User was on free plan — re-auditing all websites`);
-        const { data: websites } = await service.from('websites').select('id').eq('user_id', userId);
-
-        if (websites && websites.length > 0) {
-          for (const site of websites) {
-            try {
-              await service.from('mentions').delete().eq('website_id', site.id);
-              await service.from('audits').delete().eq('website_id', site.id);
-              await service.from('recommendations').delete().eq('website_id', site.id);
-              await runAudit(site.id, userId, 'baseline');
-              console.log(`[v0] Re-audited site ${site.id} with real AI data`);
-            } catch (err: any) {
-              console.error(`[v0] Re-audit failed for site ${site.id}:`, err.message);
-            }
+        console.log(`[v0] User was on free plan — launching background audits for all websites`);
+        
+        // Grab the websites but don't await the actual audits
+        service.from('websites').select('id').eq('user_id', userId).then(({ data: websites }) => {
+          if (websites && websites.length > 0) {
+            // Promise.all runs all website audits simultaneously in the background
+            Promise.all(websites.map(async (site) => {
+              try {
+                // Wipe the fake free-tier data
+                await service.from('mentions').delete().eq('website_id', site.id);
+                await service.from('audits').delete().eq('website_id', site.id);
+                await service.from('recommendations').delete().eq('website_id', site.id);
+                
+                // Trigger the engine. It will detect < 13 prompts, generate the 13 real ones, and run the real LLMs!
+                await runAudit(site.id, userId, 'baseline');
+                console.log(`[v0] ✅ Background re-audit SUCCESS for site ${site.id} with real AI data`);
+              } catch (err: any) {
+                console.error(`[v0] ❌ Background re-audit FAILED for site ${site.id}:`, err.message);
+              }
+            })).catch(err => console.error("Global background loop error:", err));
           }
-        }
+        });
       }
     } else if (eventType === 'subscription.canceled') {
       const customData = eventData.custom_data || {};
@@ -142,6 +148,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Instantly returns 200 OK to Paddle while the audits keep running in the background!
     return NextResponse.json({ received: true });
   } catch (err: any) {
     console.error('Webhook error processing failed:', err);
@@ -149,7 +156,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// FIXED: Included the correct NEXT_PUBLIC_ prefixes to align with environment settings
 function mapPriceToPlan(priceId: string): string | null {
   const prices: Record<string, string> = {
     [process.env.NEXT_PUBLIC_PADDLE_STARTER_PRICE_ID!]: 'starter',
