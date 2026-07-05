@@ -27,7 +27,6 @@ export default function VisibilityScoreCard({ score, previousScore, lastAuditAt,
     <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center relative shadow-sm">
       {isFreePlan && (
         <div className="absolute top-3 right-3">
-          <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-medium">Sample Data</span>
         </div>
       )}
 
