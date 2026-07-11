@@ -1,5 +1,5 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aimentioned.com';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://Sightura.com';
 
 // ✅ FINAL: Working low-cost models
 export const PLAN_CONFIG = {
@@ -56,7 +56,7 @@ export async function callOpenRouter(
       'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': APP_URL,
-      'X-Title': 'AIMentioned',
+      'X-Title': 'Sightura',
     },
     body: JSON.stringify({
       model,

@@ -21,10 +21,10 @@ export async function crawlWebsite(website: any) {
 
   try {
     await fetch(`https://${domain}/robots.txt`, {
-      headers: { 'User-Agent': 'AIMentioned Bot 1.0 (+aimentioned.com)' },
+      headers: { 'User-Agent': 'Sightura Bot 1.0 (+Sightura.com)' },
     }).catch(() => {});
     await fetch(`https://${domain}/sitemap.xml`, {
-      headers: { 'User-Agent': 'AIMentioned Bot 1.0 (+aimentioned.com)' },
+      headers: { 'User-Agent': 'Sightura Bot 1.0 (+Sightura.com)' },
     }).catch(() => {});
   } catch {}
 
@@ -32,7 +32,7 @@ export async function crawlWebsite(website: any) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     const response = await fetch(`https://${domain}`, {
-      headers: { 'User-Agent': 'AIMentioned Bot 1.0 (+aimentioned.com)' },
+      headers: { 'User-Agent': 'Sightura Bot 1.0 (+Sightura.com)' },
       signal: controller.signal,
     });
     clearTimeout(timeout);

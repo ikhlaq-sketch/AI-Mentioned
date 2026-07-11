@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="aimentioned-report-${website_id}.pdf"`,
+        'Content-Disposition': `attachment; filename="Sightura-report-${website_id}.pdf"`,
       },
     });
   } catch (err: any) {

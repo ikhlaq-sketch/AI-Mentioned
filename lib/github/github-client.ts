@@ -26,7 +26,7 @@ export async function createPullRequest(
   const [owner, repo] = website.github_repo.split('/');
   const branch = website.github_branch || 'main';
   const filePath = getTargetFilePath(website.domain);
-  const branchName = `aimentioned/fix-${slugify(recommendation.title)}-${Date.now()}`;
+  const branchName = `Sightura/fix-${slugify(recommendation.title)}-${Date.now()}`;
 
   // 1. Get base ref SHA
   const refRes = await fetch(
@@ -88,7 +88,7 @@ export async function createPullRequest(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        message: `feat: ${recommendation.title} - Added by AIMentioned`,
+        message: `feat: ${recommendation.title} - Added by Sightura`,
         tree: treeData.sha,
         parents: [baseSha],
       }),
@@ -119,10 +119,10 @@ export async function createPullRequest(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        title: `AIMentioned: ${recommendation.title}`,
+        title: `Sightura: ${recommendation.title}`,
         head: branchName,
         base: branch,
-        body: `## What changed\n${recommendation.description}\n\n## Why it improves AI visibility\nThis fix adds structured data that helps AI models understand your content better.\n\n## How to verify\nCheck your AI visibility score after merging.\n\n[View on AIMentioned](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website.domain})`,
+        body: `## What changed\n${recommendation.description}\n\n## Why it improves AI visibility\nThis fix adds structured data that helps AI models understand your content better.\n\n## How to verify\nCheck your AI visibility score after merging.\n\n[View on Sightura](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website.domain})`,
       }),
     }
   );

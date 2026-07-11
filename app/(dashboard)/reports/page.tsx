@@ -37,7 +37,7 @@ export default function ReportsPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aimentioned-report-${websiteId}.pdf`;
+      a.download = `Sightura-report-${websiteId}.pdf`;
       a.click();
     } catch { alert('Failed to generate report'); }
     finally { setLoading(false); }

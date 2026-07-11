@@ -41,7 +41,7 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col z-30">
       <Link href="/dashboard" className="p-5 border-b border-gray-100">
-        <span className="text-2xl font-bold tracking-tight text-emerald-600">AIMentioned</span>
+        <span className="text-2xl font-bold tracking-tight text-emerald-600">Sightura</span>
       </Link>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5">

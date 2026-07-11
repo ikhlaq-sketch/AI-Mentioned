@@ -9,12 +9,12 @@ export async function sendWeeklyReport(website: any, score: number, userEmail: s
   const color = scoreChange >= 0 ? '#10b981' : '#ef4444';
 
   await resend.emails.send({
-    from: 'AIMentioned <alerts@aimentioned.com>',
+    from: 'Sightura <alerts@Sightura.com>',
     to: userEmail,
     subject: `Your AI Visibility Report for ${website.brand_name}`,
     html: `
       <div style="background:#1e293b; padding:24px; border-radius:12px; color:#f1f5f9; font-family:system-ui;">
-        <h1 style="color:#6366f1; margin:0 0 24px;">AIMentioned</h1>
+        <h1 style="color:#6366f1; margin:0 0 24px;">Sightura</h1>
         <div style="background:#0f172a; padding:20px; border-radius:8px; text-align:center; margin-bottom:24px;">
           <p style="font-size:14px; color:#94a3b8; margin:0 0 8px;">AI Visibility Score</p>
           <p style="font-size:48px; font-weight:bold; margin:0; color:#f1f5f9;">${score} <span style="font-size:24px; color:${color};">${trend}${Math.abs(scoreChange)}</span></p>
@@ -34,7 +34,7 @@ export async function sendScoreDropAlert(
   userEmail: string
 ) {
   await resend.emails.send({
-    from: 'AIMentioned <alerts@aimentioned.com>',
+    from: 'Sightura <alerts@Sightura.com>',
     to: userEmail,
     subject: `⚠️ AI Visibility Drop Detected for ${website.brand_name}`,
     html: `

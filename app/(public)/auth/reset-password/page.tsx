@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold tracking-tight text-emerald-600 inline-block mb-4">
-            AIMentioned
+            Sightura
           </Link>
           <h2 className="text-3xl font-bold text-[#0f172a]">Reset Password</h2>
           <p className="text-gray-500 mt-2">Enter your email to receive a reset link</p>

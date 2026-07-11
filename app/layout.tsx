@@ -6,7 +6,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'AIMentioned – AI Search Visibility Platform',
+  title: 'Sightura – AI Search Visibility Platform',
   description: 'Track how ChatGPT, Gemini, Claude, and Perplexity mention your brand.',
 };
 

@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: `feat: ${rec.title} - Added by AIMentioned`,
+          message: `feat: ${rec.title} - Added by Sightura`,
           tree: treeData.sha,
           parents: [baseSha],
         }),
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     );
     const commitData = await commitRes.json();
 
-    const branchName = `aimentioned/fix-${slugify(rec.title)}-${Date.now()}`;
+    const branchName = `Sightura/fix-${slugify(rec.title)}-${Date.now()}`;
     await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
       method: 'POST',
       headers: {
@@ -156,10 +156,10 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: `AIMentioned: ${rec.title}`,
+          title: `Sightura: ${rec.title}`,
           head: branchName,
           base: branch,
-          body: `## What changed\n${rec.description}\n\n## Why it improves AI visibility\nThis fix adds structured data that helps AI models understand your content better.\n\n## How to verify\nCheck your AI visibility score after merging.\n\n[View on AIMentioned](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website_id})`,
+          body: `## What changed\n${rec.description}\n\n## Why it improves AI visibility\nThis fix adds structured data that helps AI models understand your content better.\n\n## How to verify\nCheck your AI visibility score after merging.\n\n[View on Sightura](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website_id})`,
         }),
       }
     );

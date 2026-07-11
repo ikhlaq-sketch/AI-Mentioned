@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   // Combine all fix codes into one file
   const combinedCode = recs.map((r: any) => `<!-- ${r.title} -->\n${r.fix_code || ''}`).join('\n\n');
-  const fileName = `aimentioned-fixes-${Date.now()}.html`;
+  const fileName = `Sightura-fixes-${Date.now()}.html`;
 
   try {
     // Get base SHA
@@ -57,12 +57,12 @@ export async function POST(req: NextRequest) {
     const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
       method: 'POST',
       headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'feat: AIMentioned AI visibility fixes', tree: treeData.sha, parents: [baseSha] }),
+      body: JSON.stringify({ message: 'feat: Sightura AI visibility fixes', tree: treeData.sha, parents: [baseSha] }),
     });
     const commitData = await commitRes.json();
 
     // Create branch
-    const branchName = `aimentioned-fixes-${Date.now()}`;
+    const branchName = `Sightura-fixes-${Date.now()}`;
     await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
       method: 'POST',
       headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
@@ -74,10 +74,10 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: 'AIMentioned: AI Visibility Fixes',
+        title: 'Sightura: AI Visibility Fixes',
         head: branchName,
         base: branch,
-        body: `## AI Visibility Fixes\n\n${recs.map((r: any) => `- ${r.title}`).join('\n')}\n\n[View on AIMentioned](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website_id})`,
+        body: `## AI Visibility Fixes\n\n${recs.map((r: any) => `- ${r.title}`).join('\n')}\n\n[View on Sightura](${process.env.NEXT_PUBLIC_APP_URL}/sites/${website_id})`,
       }),
     });
     const prData = await prRes.json();
