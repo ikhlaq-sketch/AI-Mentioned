@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    const response = await fetch('https://api.paddle.com/transactions', {
+ const response = await fetch('https://api.paddle.com/transactions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -76,6 +76,10 @@ export async function POST(req: NextRequest) {
         items: [{ price_id, quantity: 1 }],
         custom_data: {
           user_id: user.id,
+        },
+        // ADD THIS BLOCK: Forces Paddle to return to your custom domain
+        checkout: {
+          return_url: 'https://sightura.com/dashboard?upgrading=true'
         }
       }),
     });
