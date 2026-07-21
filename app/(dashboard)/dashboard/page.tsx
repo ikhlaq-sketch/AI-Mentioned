@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   const isOverLimit = currentSitesCount > allowedSites;
 
   return (
-    <div className="p-4 sm:p-6 relative">
+    <div className="relative">
       
       {/* OVERLAY LOADER FOR UPGRADES */}
       <UpgradeLoader />
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Main Content Dashboard Container */}
+      {/* Main Content */}
       <div className={isOverLimit ? "pointer-events-none select-none filter blur-sm transition-all" : ""}>
         {/* Greeting Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
@@ -162,7 +162,6 @@ export default async function DashboardPage() {
           </div>
           {recentAudits && recentAudits.length > 0 ? (
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-              {/* Horizontal scroll on small screens */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[600px]">
                   <thead>
