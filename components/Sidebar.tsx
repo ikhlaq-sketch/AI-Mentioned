@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient, signOut } from '@/lib/supabase/client';
-import { Home, Globe, Search, Lightbulb, FileText, Settings, LogOut, ArrowUpCircle, Menu, X } from 'lucide-react';
+import { Home, Globe, Search, Lightbulb, FileText, Settings, LogOut, ArrowUpCircle, Menu } from 'lucide-react';
 import QueryProgressBar from './QueryProgressBar';
 import Link from 'next/link';
 
@@ -27,7 +27,6 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, [fetchProfile]);
 
-  // Close sidebar on route change (mobile)
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
@@ -47,16 +46,18 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Hamburger Button (visible only on mobile) */}
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg md:hidden"
-        aria-label="Toggle menu"
-      >
-        {isOpen ? <X size={24} className="text-gray-700" /> : <Menu size={24} className="text-gray-700" />}
-      </button>
+      {/* Hamburger button – only visible when sidebar is closed */}
+      {!isOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu size={24} className="text-gray-700" />
+        </button>
+      )}
 
-      {/* Overlay (mobile only) */}
+      {/* Overlay – closes sidebar when clicked outside */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/30 md:hidden"
