@@ -381,8 +381,8 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         <div className="space-y-6">
           <div className="bg-white border border-red-200 rounded-2xl p-4 sm:p-6 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-red-600 flex items-center gap-2 mb-2">
-              <AlertTriangle size={18} sm:size={20} /> Danger Zone
-            </h3>
+  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" /> Danger Zone
+</h3>
             <p className="text-sm text-gray-600 mb-6">
               Permanently delete <strong>{site.domain}</strong> and all of its historical data. This includes all configured prompts, audit history, AI mentions, and optimization recommendations.
               <strong> This action cannot be undone.</strong>
