@@ -64,7 +64,9 @@ export default function VisibilityScoreCard({ score, previousScore, lastAuditAt,
 
       {isFreePlan && (
         <div className="mt-4 bg-gradient-to-r from-emerald-50 to-white border border-emerald-200 rounded-xl p-4">
-          <p className="text-sm text-gray-700 font-medium mb-2">Get accurate, real-time AI visibility analysis</p>
+     <p className="text-sm text-gray-700 font-medium mb-2">
+  <span className="text-emerald-600">✅</span> Upgrade for automated fixes + custom prompts tailored to your brand.
+</p>
           <a href="/?pricing=true#pricing" className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-md shadow-emerald-200">
             <Lock size={14} /> Upgrade to Pro
           </a>
