@@ -4,11 +4,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen bg-gray-50/50">
       <Sidebar />
-      <main className="flex-1 min-h-screen w-full md:ml-64">
-        {/* Increased top padding for better spacing */}
-        <div className="p-4 sm:p-6 md:p-8 pt-16 sm:pt-10 md:pt-12">
-          {children}
-        </div>
+      <main className="flex-1 min-h-screen w-full md:ml-64 p-4 sm:p-6 md:p-8 pt-20 sm:pt-12 md:pt-14">
+        {children}
       </main>
     </div>
   );
