@@ -105,4 +105,4 @@ export default async function RecommendationsPage({ searchParams }: { searchPara
       )}
     </div>
   );
-}
+} 

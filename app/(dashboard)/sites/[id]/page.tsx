@@ -69,4 +69,4 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
       />
     </div>
   );
-}
+} 
