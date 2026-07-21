@@ -19,17 +19,29 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Verify the user owns this competitor's website
-    const { data: competitor, error: compCheck } = await supabase
+    // 1. Get competitor's website_id
+    const { data: competitor, error: compErr } = await supabase
       .from('competitors')
-      .select('website_id, websites(user_id)')
+      .select('website_id')
       .eq('id', competitor_id)
       .single();
 
-    if (compCheck || competitor?.websites?.user_id !== session.user.id) {
+    if (compErr || !competitor) {
+      return NextResponse.json({ error: 'Competitor not found' }, { status: 404 });
+    }
+
+    // 2. Verify the website belongs to the authenticated user
+    const { data: website, error: webErr } = await supabase
+      .from('websites')
+      .select('user_id')
+      .eq('id', competitor.website_id)
+      .single();
+
+    if (webErr || website?.user_id !== session.user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // 3. Delete the competitor
     const { error } = await supabase
       .from('competitors')
       .delete()
