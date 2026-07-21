@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, 
-  Clock, ArrowRight, Lock, Settings, AlertTriangle, X, Check, Globe, PenSquare 
+  Clock, ArrowRight, Lock, Settings, AlertTriangle, X, Check, Globe, PenSquare, Users
 } from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
