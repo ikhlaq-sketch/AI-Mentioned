@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient, signInWithGoogle } from '@/lib/supabase/client';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { ArrowRight, User, Mail, Lock } from 'lucide-react';
+import { ArrowRight, User, Mail, Lock, CheckCircle } from 'lucide-react';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -24,10 +25,48 @@ export default function RegisterPage() {
       password,
       options: { data: { full_name: name } },
     });
-    if (error) setError(error.message);
-    else router.push('/dashboard');
     setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      // Show success message and redirect after 10 seconds
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/login');
+      }, 10000);
+    }
   };
+
+  // If success, show the confirmation box
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-white flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-emerald-100/40 rounded-full blur-3xl opacity-50" />
+        <div className="absolute top-40 right-10 w-48 h-48 bg-green-100/30 rounded-full blur-3xl" />
+        <div className="relative z-10 w-full max-w-md">
+          <div className="bg-white border border-emerald-200 rounded-2xl p-8 shadow-xl shadow-emerald-100 text-center">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+            <h3 className="text-xl font-bold text-[#0f172a] mb-2">Verification Email Sent</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              We've sent a confirmation link to <strong>{email}</strong>.
+              Please check your inbox and click the link to activate your account.
+            </p>
+            <p className="text-gray-400 text-xs mt-4">
+              Redirecting to login in 10 seconds...
+            </p>
+            <button
+              onClick={() => router.push('/login')}
+              className="mt-6 text-emerald-600 font-semibold hover:text-emerald-700 transition"
+            >
+              Go to login now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-white flex items-center justify-center p-4 relative overflow-hidden">
