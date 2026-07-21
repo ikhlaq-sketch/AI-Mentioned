@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ArrowUpCircle, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function UpgradeButton() {
   const [loading, setLoading] = useState(false);
@@ -21,8 +21,11 @@ export default function UpgradeButton() {
   };
 
   return (
-    <button onClick={handleUpgrade} disabled={loading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50">
+    <button
+      onClick={handleUpgrade}
+      disabled={loading}
+      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300 disabled:opacity-50 w-full sm:w-auto"
+    >
       <Sparkles size={16} />
       {loading ? 'Loading...' : 'Upgrade Plan'}
     </button>

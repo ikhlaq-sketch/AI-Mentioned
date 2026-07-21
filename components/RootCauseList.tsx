@@ -3,9 +3,9 @@ import { AlertCircle, Lightbulb, Search, TrendingDown, TrendingUp, ArrowRight } 
 export default function RootCauseList({ crawlData, mentions, brandName, competitors }: { crawlData: any; mentions: any[]; brandName: string; competitors: any[] }) {
   if (!mentions || mentions.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Root Cause Insights</h3>
-        <div className="flex gap-3 p-3 rounded-xl bg-gray-50">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Root Cause Insights</h3>
+        <div className="flex flex-col sm:flex-row gap-3 p-3 rounded-xl bg-gray-50">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-gray-500 bg-gray-100">
             <AlertCircle size={16} />
           </div>
@@ -63,7 +63,6 @@ export default function RootCauseList({ crawlData, mentions, brandName, competit
     });
   }
 
-  // Always show at least one insight
   if (causes.length === 0) {
     causes.push({
       icon: Lightbulb,
@@ -73,11 +72,11 @@ export default function RootCauseList({ crawlData, mentions, brandName, competit
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Root Cause Insights</h3>
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
+      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Root Cause Insights</h3>
       <div className="space-y-3">
         {causes.map((cause, i) => (
-          <div key={i} className="flex gap-3 p-3 rounded-xl bg-gray-50">
+          <div key={i} className="flex flex-col sm:flex-row gap-3 p-3 rounded-xl bg-gray-50">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${cause.color}`}>
               <cause.icon size={16} />
             </div>

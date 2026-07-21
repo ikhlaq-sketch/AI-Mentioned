@@ -13,12 +13,10 @@ export default function UpgradeLoader() {
   useEffect(() => {
     if (!isUpgrading) return;
 
-    // 1. Progress Bar Logic
     const progressInterval = setInterval(() => {
       setProgress((p) => (p < 95 ? p + Math.floor(Math.random() * 5) + 1 : 95));
     }, 800);
 
-    // 2. Polling Logic
     const pollingInterval = setInterval(async () => {
       try {
         const res = await fetch('/api/upgrade-status', { cache: 'no-store' });
@@ -29,12 +27,9 @@ export default function UpgradeLoader() {
           clearInterval(pollingInterval);
           clearInterval(progressInterval);
           
-          // --- THE CRITICAL FIX ---
-          // 1. Use the native browser history to remove the query param WITHOUT a full refresh yet
           const newUrl = window.location.pathname; 
           window.history.replaceState({}, '', newUrl);
           
-          // 2. Now force the hard reload so the UI updates with the new real data
           setTimeout(() => {
             window.location.href = '/dashboard';
           }, 300);
@@ -50,23 +45,22 @@ export default function UpgradeLoader() {
     };
   }, [isUpgrading]);
 
-  // If not upgrading, don't render anything
   if (!isUpgrading) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-sm">
-      <div className="text-center p-6">
-        <LoadingSpinner size={48} className="mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-gray-900">Upgrading your AI Audit...</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-sm p-4">
+      <div className="text-center p-4 sm:p-6 max-w-md w-full">
+        <LoadingSpinner size={40} className="mx-auto mb-4" />
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">Upgrading your AI Audit...</h2>
         <p className="text-gray-500 text-sm mt-2">Generating real-time insights for your brand.</p>
         
-        {/* Progress Bar */}
-        <div className="w-64 h-2 bg-gray-100 rounded-full mt-6 mx-auto overflow-hidden">
+        <div className="w-full max-w-xs mx-auto h-2 bg-gray-100 rounded-full mt-6 overflow-hidden">
           <div 
-            className="h-full bg-emerald-500 transition-all duration-500" 
+            className="h-full bg-emerald-500 transition-all duration-500 rounded-full" 
             style={{ width: `${progress}%` }}
-          ></div>
+          />
         </div>
+        <p className="text-xs text-gray-400 mt-2">{progress}%</p>
       </div>
     </div>
   );

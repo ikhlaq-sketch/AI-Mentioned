@@ -12,13 +12,19 @@ export default function StatCard({ icon, label, value, trend }: { icon: ReactNod
   const config = trend ? trendConfig[trend] : null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-50 transition-all duration-300 hover:-translate-y-0.5">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-50 transition-all duration-300 hover:-translate-y-0.5">
       <div className="flex items-center justify-between mb-3">
-        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">{icon}</div>
-        {config && <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${config.bg} ${config.color}`}>{config.icon}</span>}
+        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+          {icon}
+        </div>
+        {config && (
+          <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full ${config.bg} ${config.color}`}>
+            {config.icon}
+          </span>
+        )}
       </div>
-      <p className="text-3xl font-extrabold text-gray-900 mb-0.5">{value}</p>
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
+      <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-0.5">{value}</p>
+      <p className="text-xs sm:text-sm text-gray-500 font-medium">{label}</p>
     </div>
   );
 }

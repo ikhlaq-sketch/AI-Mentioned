@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Zap, Shield } from 'lucide-react';
+import { Zap, Shield, Loader2 } from 'lucide-react';
 
 export default function ScanModeToggle({ siteId, currentMode }: { siteId: string; currentMode: string }) {
   const [mode, setMode] = useState(currentMode);
@@ -42,7 +42,7 @@ export default function ScanModeToggle({ siteId, currentMode }: { siteId: string
       <button
         onClick={() => handleToggle(isAuto ? 'manual' : 'auto')}
         disabled={loading}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-all ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-semibold rounded-full transition-all whitespace-nowrap ${
           isAuto
             ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
             : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
@@ -52,11 +52,10 @@ export default function ScanModeToggle({ siteId, currentMode }: { siteId: string
         {isAuto ? 'Auto' : 'Manual'}
       </button>
 
-      {/* Confirmation Modal */}
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl p-6 max-w-sm mx-4 text-center">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl p-4 sm:p-6 max-w-sm w-full mx-auto text-center">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
               Switch to {pendingMode === 'auto' ? 'Auto' : 'Manual'} Mode?
             </h3>
             <p className="text-sm text-gray-500 mb-4">
@@ -64,13 +63,13 @@ export default function ScanModeToggle({ siteId, currentMode }: { siteId: string
                 ? 'Auto mode runs daily scans + weekly audits automatically. 88-100 queries/month.'
                 : 'Manual mode runs weekly audits only. You control when extra scans run. 36-48 queries/month.'}
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={confirmToggle}
                 disabled={loading}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-medium text-sm"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-medium text-sm flex items-center justify-center"
               >
-                {loading ? 'Switching...' : 'Confirm'}
+                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Confirm'}
               </button>
               <button
                 onClick={() => setShowConfirm(false)}

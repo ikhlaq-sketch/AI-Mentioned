@@ -7,12 +7,17 @@ export default function QueryProgressBar({ used, limit }: { used: number; limit:
 
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-xs">
+      <div className="flex justify-between text-[10px] sm:text-xs">
         <span className="text-gray-400">Queries Used</span>
-        <span className={`font-semibold ${textColor}`}>{used}/{limit}</span>
+        <span className={`font-semibold ${textColor}`}>
+          {used}/{limit}
+        </span>
       </div>
-      <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full ${barColor} rounded-full transition-all duration-700 ease-out`} style={{ width: `${percentage}%` }} />
+      <div className="w-full h-2 sm:h-2.5 bg-gray-100 rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${barColor} rounded-full transition-all duration-700 ease-out`} 
+          style={{ width: `${percentage}%` }} 
+        />
       </div>
     </div>
   );
