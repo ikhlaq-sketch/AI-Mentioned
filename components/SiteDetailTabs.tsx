@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, Clock, ArrowRight, Lock, Settings, AlertTriangle } from 'lucide-react';
+import { 
+  BarChart3, MessageSquare, Search, Lightbulb, Loader2, Plus, Edit3, Trash2, 
+  Clock, ArrowRight, Lock, Settings, AlertTriangle, X, Check, Globe, PenSquare 
+} from 'lucide-react';
 import VisibilityScoreCard from './VisibilityScoreCard';
 import CompetitorTable from './CompetitorTable';
 import RootCauseList from './RootCauseList';
@@ -24,6 +27,20 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
   const [displayMentions, setDisplayMentions] = useState(latestMentions);
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ==========================================
+  // NEW: Edit State Variables
+  // ==========================================
+  const [editingSite, setEditingSite] = useState(false);
+  const [editDomain, setEditDomain] = useState(site.domain);
+  const [editBrandName, setEditBrandName] = useState(site.brand_name);
+  const [editCategory, setEditCategory] = useState(site.category || '');
+  const [editScanMode, setEditScanMode] = useState(site.scan_mode || 'auto');
+  const [savingSite, setSavingSite] = useState(false);
+  
+  const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
+  const [editCompDomain, setEditCompDomain] = useState('');
+  const [editCompBrandName, setEditCompBrandName] = useState('');
   
   const router = useRouter();
   const isFreePlan = userPlan === 'free';
@@ -35,6 +52,122 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
     { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  // ==========================================
+  // NEW: Save Site Details
+  // ==========================================
+  const handleSaveSite = async () => {
+    if (!editDomain.trim() || !editBrandName.trim()) {
+      alert('Domain and Brand Name are required.');
+      return;
+    }
+    setSavingSite(true);
+    try {
+      const res = await fetch('/api/sites/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          website_id: site.id,
+          domain: editDomain.trim(),
+          brand_name: editBrandName.trim(),
+          category: editCategory.trim(),
+          scan_mode: editScanMode,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        site.domain = editDomain.trim();
+        site.brand_name = editBrandName.trim();
+        site.category = editCategory.trim();
+        site.scan_mode = editScanMode;
+        setEditingSite(false);
+        router.refresh();
+      } else {
+        alert(data.error || 'Failed to update site.');
+      }
+    } catch (err) {
+      alert('Something went wrong.');
+    }
+    setSavingSite(false);
+  };
+
+  // ==========================================
+  // NEW: Save Competitor
+  // ==========================================
+  const handleSaveCompetitor = async (competitorId: string) => {
+    if (!editCompDomain.trim() || !editCompBrandName.trim()) {
+      alert('Domain and Brand Name are required.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/competitors/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          competitor_id: competitorId,
+          domain: editCompDomain.trim(),
+          brand_name: editCompBrandName.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const comp = site.competitors.find((c: any) => c.id === competitorId);
+        if (comp) {
+          comp.domain = editCompDomain.trim();
+          comp.brand_name = editCompBrandName.trim();
+        }
+        setEditingCompetitorId(null);
+        router.refresh();
+      } else {
+        alert(data.error || 'Failed to update competitor.');
+      }
+    } catch (err) {
+      alert('Something went wrong.');
+    }
+  };
+
+  // ==========================================
+  // NEW: Delete Competitor
+  // ==========================================
+  const handleDeleteCompetitor = async (competitorId: string) => {
+    if (!confirm('Are you sure you want to remove this competitor?')) return;
+    try {
+      const res = await fetch('/api/competitors/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competitor_id: competitorId }),
+      });
+      if (res.ok) {
+        site.competitors = site.competitors.filter((c: any) => c.id !== competitorId);
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete competitor.');
+      }
+    } catch (err) {
+      alert('Something went wrong.');
+    }
+  };
+
+  // ==========================================
+  // Start editing a competitor
+  // ==========================================
+  const startEditCompetitor = (comp: any) => {
+    setEditingCompetitorId(comp.id);
+    setEditCompDomain(comp.domain);
+    setEditCompBrandName(comp.brand_name);
+  };
+
+  // ==========================================
+  // Cancel editing competitor
+  // ==========================================
+  const cancelEditCompetitor = () => {
+    setEditingCompetitorId(null);
+    setEditCompDomain('');
+    setEditCompBrandName('');
+  };
+
+  // ... (rest of the existing useEffect and handler functions remain the same)
 
   useEffect(() => {
     async function fetchPromptsWithScores() {
@@ -89,7 +222,6 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
   const handleDeleteSite = async () => {
     if (!confirm(`Are you sure you want to delete ${site.domain}? This will permanently erase all associated audits, mentions, and data. This action cannot be undone.`)) return;
-    
     setIsDeleting(true);
     try {
       const res = await fetch('/api/websites/delete', {
@@ -97,9 +229,7 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ website_id: site.id }),
       });
-      
       const data = await res.json();
-      
       if (!res.ok) {
         alert(data.error || 'Failed to delete site.');
         setIsDeleting(false);
@@ -379,10 +509,171 @@ export default function SiteDetailTabs({ site, latestMentions, userId, userPlan 
 
       {activeTab === 'settings' && (
         <div className="space-y-6">
+          {/* ==========================================
+              NEW: Edit Website Section
+              ========================================== */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> Website Details
+              </h3>
+              {!editingSite ? (
+                <button
+                  onClick={() => setEditingSite(true)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                >
+                  <PenSquare size={16} /> Edit
+                </button>
+              ) : (
+                <button
+                  onClick={() => setEditingSite(false)}
+                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+
+            {editingSite ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Domain</label>
+                  <input
+                    type="text"
+                    value={editDomain}
+                    onChange={(e) => setEditDomain(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 text-sm mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                    placeholder="example.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Brand Name</label>
+                  <input
+                    type="text"
+                    value={editBrandName}
+                    onChange={(e) => setEditBrandName(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 text-sm mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                    placeholder="My Brand"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Category</label>
+                  <input
+                    type="text"
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 text-sm mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                    placeholder="e.g. CRM Software"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Scan Mode</label>
+                  <select
+                    value={editScanMode}
+                    onChange={(e) => setEditScanMode(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 text-sm mt-1 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50"
+                  >
+                    <option value="auto">Auto – Daily scans + weekly audits</option>
+                    <option value="manual">Manual – Weekly audits only</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleSaveSite}
+                  disabled={savingSite}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {savingSite ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                  {savingSite ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <p><span className="text-gray-500">Domain:</span> <span className="text-gray-900 font-medium">{site.domain}</span></p>
+                <p><span className="text-gray-500">Brand Name:</span> <span className="text-gray-900 font-medium">{site.brand_name}</span></p>
+                {site.category && <p><span className="text-gray-500">Category:</span> <span className="text-gray-900 font-medium">{site.category}</span></p>}
+                <p><span className="text-gray-500">Scan Mode:</span> <span className="text-gray-900 font-medium capitalize">{site.scan_mode}</span></p>
+              </div>
+            )}
+          </div>
+
+          {/* ==========================================
+              NEW: Edit Competitors Section
+              ========================================== */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> Competitors
+            </h3>
+            
+            {site.competitors && site.competitors.length > 0 ? (
+              <div className="space-y-3">
+                {site.competitors.map((comp: any) => (
+                  <div key={comp.id} className="bg-gray-50 rounded-xl p-3">
+                    {editingCompetitorId === comp.id ? (
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={editCompDomain}
+                          onChange={(e) => setEditCompDomain(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-400"
+                          placeholder="competitor.com"
+                        />
+                        <input
+                          type="text"
+                          value={editCompBrandName}
+                          onChange={(e) => setEditCompBrandName(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-400"
+                          placeholder="Competitor Brand"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSaveCompetitor(comp.id)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1"
+                          >
+                            <Check size={14} /> Save
+                          </button>
+                          <button
+                            onClick={cancelEditCompetitor}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-1.5 rounded-lg text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-900 font-medium text-sm">{comp.brand_name}</p>
+                          <p className="text-xs text-gray-500">{comp.domain}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEditCompetitor(comp)}
+                            className="text-gray-400 hover:text-emerald-600 transition-colors"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCompetitor(comp.id)}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">No competitors added yet.</p>
+            )}
+          </div>
+
+          {/* Danger Zone */}
           <div className="bg-white border border-red-200 rounded-2xl p-4 sm:p-6 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-red-600 flex items-center gap-2 mb-2">
-  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" /> Danger Zone
-</h3>
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" /> Danger Zone
+            </h3>
             <p className="text-sm text-gray-600 mb-6">
               Permanently delete <strong>{site.domain}</strong> and all of its historical data. This includes all configured prompts, audit history, AI mentions, and optimization recommendations.
               <strong> This action cannot be undone.</strong>
